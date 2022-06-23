@@ -29,3 +29,4 @@ def test_load_all(train_data_gt, test_data_gt):
     np.testing.assert_array_equal(test_data, test_data_gt)
     assert user_num_gt == user_num
     assert item_num_gt == item_num
+
