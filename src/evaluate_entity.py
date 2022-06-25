@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, average_precision_score, recall_score, precision_score
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -20,42 +20,36 @@ def ndcg(gt_item, pred_items):
 
 
 def roc(gt_item, pred_prob):
-    return roc_auc_score(gt_item, pred_prob)
+    try:
+        return roc_auc_score(gt_item, pred_prob)
+    except:
+        pass
 
+def recall(gt, prob, th):
+    y_pred = [1 if y >= th else 0 for y in prob]
+    return recall_score(gt, y_pred, zero_division=0)
 
+def precision(gt, prob, th):
+    y_pred = [1 if y >= th else 0 for y in prob]
+    return precision_score(gt, y_pred, zero_division=0)
 #
-# def metrics(model, test_loader, top_k):
-# 	HR, NDCG, ROC = [], [], []
+# def map(gt_item, pred_prob):
 #
-# 	for cat_data, label in test_loader:
-# 		cat_data = cat_data.to(device)
-# 		label = label.cpu().numpy().tolist()
-#
-# 		predictions = model(cat_data)[:, 1]
-# 		prob, indices = torch.topk(predictions, top_k)
-# 		recommends = torch.take(
-# 				cat_data[:, 1], indices).cpu().numpy().tolist()
-#
-# 		gt_item = cat_data[0, 1].cpu().numpy().tolist() #ground truth, item id
-# 		pred_list = predictions.tolist()
-# 		HR.append(hit(gt_item, recommends))
-# 		NDCG.append(ndcg(gt_item, recommends))
-# 		ROC.append(roc(label, pred_list))
-#
-# 	return np.mean(HR), np.mean(NDCG), np.mean(ROC)
+#     return
 
-
-def metrics(cat_data, predictions, label, top_k, is_train):
+def metrics(cat_data, predictions, label, top_k, is_train, threshold=0.5):
     if is_train:
-        HR_1batch, NDCG_1batch, ROC_1batch =0,0,0
+        HR_1batch, NDCG_1batch, ROC_1batch, ROC_top1batch, recall_1batch,  precision_1batch =0,0,0,0,0,0
     else:
-        prob, indices = torch.topk(predictions, top_k)
+        y_score, indices = torch.topk(predictions, top_k)
         recommends = torch.take(
-            cat_data[:, 1], indices).cpu().numpy().tolist()
-        gt_item = cat_data[0, 1].cpu().numpy().tolist()  # ground truth, item id
+            cat_data[:, 1], indices).tolist()
+        gt_item = cat_data[0, 1].tolist()  # ground truth, item id
         pred_list = predictions.tolist()
         HR_1batch = hit(gt_item, recommends)
         NDCG_1batch = ndcg(gt_item, recommends)
-        ROC_1batch = roc(label.cpu().numpy().tolist(), pred_list)
-
-    return HR_1batch, NDCG_1batch, ROC_1batch
+        ROC_1batch = roc(label.numpy(), pred_list)
+        ROC_top1batch = roc(label.numpy()[indices], y_score.detach().numpy())
+        recall_1batch = recall(label.numpy()[indices], y_score.detach().numpy(), threshold)
+        precision_1batch = precision(label.numpy()[indices], y_score.detach().numpy(), threshold)
+    return HR_1batch, NDCG_1batch, ROC_1batch, ROC_top1batch, recall_1batch, precision_1batch

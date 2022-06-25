@@ -45,7 +45,7 @@ parser.add_argument("--factor_num",
 parser.add_argument("--num_layers",
                     type=int,
                     default=2,
-                    help="number of layers in MLP model")
+                    help="number of neurons_in_layers in MLP model")
 parser.add_argument("--num_ng",
                     type=int,
                     default=4,

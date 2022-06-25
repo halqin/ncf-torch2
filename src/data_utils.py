@@ -5,7 +5,9 @@ import torch.utils.data as data
 from collections import OrderedDict
 # from src import config
 from data_process.neg_sample import read_feather
-
+import torch
+torch.manual_seed(0)
+np.random.seed(0)
 
 # def load_all_csv():
 # 	'''
