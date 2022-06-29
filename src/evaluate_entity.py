@@ -88,9 +88,6 @@ class CustomHR(Metric):
 
 # def process_function()
 class CustomNDCG(Metric):
-    '''
-    Calcualte Hit Rate
-    '''
 
     def __init__(self, output_transform=lambda x: [x['pos_item'], x['reco_item']], device="cpu"):
         self._ndcg_list = None
