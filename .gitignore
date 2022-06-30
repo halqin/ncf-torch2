@@ -145,3 +145,5 @@ config.py
 runs
 wandb
 checkpoint
+.DS_Store
+._.DS_Store
