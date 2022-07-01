@@ -9,12 +9,12 @@ params:
   lr: 1e-3
   emb_dim: 50 #The maximum embedding dimension
   patience: 10 #Number of events to wait if no improvement and then stop the training.
-  
+
 file:
     train_pos: leave_one_train.csv
     train_neg: leave_one_train_neg
     test: test_pos_neg
     all_features: merged_sub_clean.csv
-
+    title_emb: job_title_embed3
 path:
   root: ../../data/jobs
