@@ -85,7 +85,7 @@ class EntityCat_num(nn.Module):
         all_layers = nn.ModuleList()
         num_categorical_cols = sum((nf for ni, nf in embedding_size))
         input_size = num_categorical_cols + num_numerical_cols
-        print('hao-----', len(input_size))
+        # print('hao-----', len(input_size))
         # loop iterates to add corresonding neurons_in_layers to all_layers list above
         for num_neurons in neurons_in_layers:
             all_layers.append(nn.Linear(input_size, num_neurons))
@@ -107,9 +107,7 @@ class EntityCat_num(nn.Module):
         # 'The number of features in the feature list and x_categorical shape should match'
         for i, e in enumerate(self.all_embeddings):
             embeddings.append(e(x_categorical[:, i].long()))
-        # print('hao-------',type(torch.tensor(x_categorical[:, -1])))
-        print('hao---------')
-        embeddings.append(x_categorical[:,i:].long())
+        embeddings.append(x_categorical[:,i+1:].long())
         x = torch.cat(embeddings, 1)
         x = self.embedding_dropout(x)
         x = torch.cat([x], 1)
