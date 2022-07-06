@@ -51,7 +51,7 @@ class EntityCat(nn.Module):
         for m in self.mlp_layers:
             if isinstance(m, nn.Linear):
                 nn.init.xavier_normal_(m.weight)
-        nn.init.kaiming_normal_(self.predict_layer.weight, a=1, nonlinearity='sigmoid')
+        nn.init.kaiming_normal_(self.predict_layer.weight, a=1)
         
 
     def forward(self, x_categorical):
@@ -64,8 +64,9 @@ class EntityCat(nn.Module):
             to_cat.append(emb_layer(x_categorical[:, col_index]))
         x = torch.cat(to_cat, 1)
         x = self.mlp_layers(x)
-        prediction = self.predict_layer(x)
-        return prediction
+        x = self.predict_layer(x)
+        x = torch.sigmoid(x)
+        return x
 
 
 class EntityCat_sbert(nn.Module):
