@@ -16,5 +16,6 @@ file:
     test: test_pos_neg
     all_features: merged_sub_clean.csv
     title_emb: job_title_embed3
+    hdf5: leave_one_train.hdf5
 path:
   root: ../../data/jobs

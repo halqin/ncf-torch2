@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.append('../../../src')
 from src.data_process.neg_sample import random_sample
 from src.utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
 import pytest
