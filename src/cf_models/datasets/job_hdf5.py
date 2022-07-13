@@ -51,11 +51,11 @@ def hdf5_from_dataframe(data, outputfilename):
 
         dt = h5py.special_dtype(vlen=str)
         user = list(data[DEFAULT_USER_COL].cat.categories)
-        dset = f.create_dataset(DEFAULT_USER_COL, (len(user),), dtype=dt)
+        dset = f.create_dataset(DEFAULT_USER_COL, (len(user),))
         dset[:] = user
 
         jobs = list(data[DEFAULT_ITEM_COL].cat.categories)
-        dset = f.create_dataset(DEFAULT_ITEM_COL, (len(jobs),), dtype=dt)
+        dset = f.create_dataset(DEFAULT_ITEM_COL, (len(jobs),))
         dset[:] = jobs
 
 
@@ -84,7 +84,7 @@ def get_career(filename):
     with h5py.File(filename, "r") as f:
         m = f.get("job_user_apply")
         plays = csr_matrix((m.get("data"), m.get("indices"), m.get("indptr")))
-        return np.array(f[DEFAULT_ITEM_COL].asstr()[:]), np.array(f[DEFAULT_USER_COL].asstr()[:]), plays
+        return np.array(f[DEFAULT_ITEM_COL][:]), np.array(f[DEFAULT_USER_COL][:]), plays
 
 
 def main():
