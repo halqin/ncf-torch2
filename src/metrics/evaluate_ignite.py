@@ -115,7 +115,7 @@ class CustomNDCG(Metric):
 
 
 # def process_function()
-class CustomAuc(Metric):
+class CustomAuc_new(Metric):
     '''
     Calcualte AUC
     '''
@@ -133,7 +133,7 @@ class CustomAuc(Metric):
     @reinit__is_reduced
     def update(self, output):
         y = output[0].cpu().numpy().astype(int)
-        pd_scores = output[1].numpy()
+        pd_scores = output[1].cpu().numpy()
         self._auc_list.append(self.auc.compute(pd_scores = pd_scores, gt_pos =y))
 
     @sync_all_reduce("_auc_list")
@@ -142,7 +142,7 @@ class CustomAuc(Metric):
 
 
 # def process_function()
-class CustomAuc_top(Metric):
+class CustomAuc_top_new(Metric):
     '''
     Calcualte AUC@k
     '''
@@ -217,3 +217,74 @@ class CustomPrecision_top(Metric):
     @sync_all_reduce("_precision_list")
     def compute(self):
         return np.mean(self._precision_list)
+
+class CustomAuc(Metric):
+    '''
+    Calcualte Auc
+    '''
+
+    def __init__(self, output_transform=lambda x: [x['label'], x['y_pred']], device="cpu"):
+        self._roc_rate = None
+        super(CustomAuc, self).__init__(output_transform=output_transform, device=device)
+
+    @reinit__is_reduced
+    def reset(self):
+        self._roc_list = []
+        super(CustomAuc, self).reset()
+
+    @reinit__is_reduced
+    def update(self, output):
+        y = output[0].cpu().numpy()
+        y_pred = output[1].tolist()
+        self._roc_list.append(auc(y, y_pred))
+
+    @sync_all_reduce("_roc_list")
+    def compute(self):
+        return np.mean(self._roc_list)
+
+
+class CustomAuc_top(Metric):
+    '''
+    Calcualte Auc@k
+    '''
+
+    def __init__(self, output_transform=lambda x: [x['label_top'], x['y_pred_top']], device="cpu"):
+        self._roc_list = None
+        super(CustomAuc_top, self).__init__(output_transform=output_transform, device=device)
+
+    @reinit__is_reduced
+    def reset(self):
+        self._roc_list = []
+        super(CustomAuc_top, self).reset()
+
+    @reinit__is_reduced
+    def update(self, output):
+        y = output[0]
+        y_pred = output[1]
+        self._roc_list.append(auc(y, y_pred))
+
+    @sync_all_reduce("_roc_list")
+    def compute(self):
+        return np.mean(self._roc_list)
+
+
+
+def model_infer2(apps_true, jobsid, usersid,model, u_i_matrix, n):
+    test_items = apps_true.itemid.values
+    test_items_indices = np.where(np.isin(jobsid, test_items))
+    test_items_rating = apps_true.rating.values
+    test_users = apps_true[DEFAULT_USER_COL].unique()
+    test_user_indices = np.where(np.isin(usersid, test_users))[0]
+    ids, scores = model.recommend(test_user_indices, 
+                                  user_job_app[test_user_indices],
+                                  N=n,
+                                  items=test_items_indices[0])
+    reco_jobsid = jobsid[ids][0]
+#     reco_jobsid = reco_jobsid.astype(np.int32)
+#     test_items = test_items.astype(np.int32)
+    test_items_sort_ind = np.argsort(test_items)
+    test_items_rating = test_items_rating[test_items_sort_ind]
+    reco_indices = np.searchsorted(test_items[test_items_sort_ind], reco_jobsid)
+    return test_items_rating, reco_indices, scores
+
+
