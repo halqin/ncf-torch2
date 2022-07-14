@@ -441,8 +441,10 @@ class AUC(RankingMetric):
         neg_scores = pd_scores[gt_neg.astype(np.bool)]
         ui_scores = np.repeat(pos_scores, len(neg_scores))
         uj_scores = np.tile(neg_scores, len(pos_scores))
-
-        return (ui_scores > uj_scores).sum() / len(uj_scores)
+        if len(uj_scores)==0:
+            return 0
+        else:
+            return (ui_scores > uj_scores).sum() / len(uj_scores)
 
 
 class MAP(RankingMetric):

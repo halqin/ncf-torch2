@@ -4,6 +4,9 @@ from sklearn.metrics import roc_auc_score, average_precision_score, recall_score
 
 from ignite.metrics.metric import sync_all_reduce, reinit__is_reduced
 from ignite.metrics import  Metric
+from metrics import ranking
+import hydra
+from omegaconf import DictConfig
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -22,7 +25,7 @@ def ndcg(gt_item, pred_items):
     return 0
 
 
-def roc(gt_item, pred_prob):
+def auc(gt_item, pred_prob):
     try:
         return roc_auc_score(gt_item, pred_prob)
     except:
@@ -54,11 +57,11 @@ def metrics(cat_data, predictions, label, top_k, threshold=0.5):
     y_score_all = predictions.tolist()
     HR_1batch = hit(gt_item, recommends)
     NDCG_1batch = ndcg(gt_item, recommends)
-    ROC_1batch = roc(label.cpu().numpy(), y_score_all)
-    ROC_top1batch = roc(label[indices].cpu().numpy(), y_score.detach().cpu().numpy())
+    auc_1batch = auc(label.cpu().numpy(), y_score_all)
+    auc_top1batch = auc(label[indices].cpu().numpy(), y_score.detach().cpu().numpy())
     recall_1batch = recall(label[indices].cpu().numpy(), y_score.detach().cpu().numpy(), threshold)
     precision_1batch = precision(label[indices].cpu().numpy(), y_score.detach().cpu().numpy(), threshold)
-    return HR_1batch, NDCG_1batch, ROC_1batch, ROC_top1batch, recall_1batch, precision_1batch
+    return HR_1batch, NDCG_1batch, auc_1batch, auc_top1batch, recall_1batch, precision_1batch
 
 
 # def process_function()
@@ -89,8 +92,10 @@ class CustomHR(Metric):
 # def process_function()
 class CustomNDCG(Metric):
 
-    def __init__(self, output_transform=lambda x: [x['pos_item'], x['reco_item']], device="cpu"):
+    def __init__(self, k, output_transform=lambda x: [x['label'], x['y_indices']], device="cpu"):
         self._ndcg_list = None
+        self.k = k
+        self.ndcg = ranking.NDCG(k=k)
         super(CustomNDCG, self).__init__(output_transform=output_transform, device=device)
 
     @reinit__is_reduced
@@ -100,9 +105,9 @@ class CustomNDCG(Metric):
 
     @reinit__is_reduced
     def update(self, output):
-        gt_item = output[0]
-        reco_item = output[1]
-        self._ndcg_list.append(ndcg(gt_item, reco_item))
+        y = output[0].cpu().numpy()
+        y_indices = output[1]
+        self._ndcg_list.append(self.ndcg.compute(y, y_indices))
 
     @sync_all_reduce("_ndcg_list")
     def compute(self):
@@ -110,65 +115,66 @@ class CustomNDCG(Metric):
 
 
 # def process_function()
-class CustomRoc(Metric):
+class CustomAuc(Metric):
     '''
-    Calcualte Hit Rate
+    Calcualte AUC
     '''
 
     def __init__(self, output_transform=lambda x: [x['label'], x['y_pred']], device="cpu"):
-        self._roc_rate = None
-        super(CustomRoc, self).__init__(output_transform=output_transform, device=device)
+        self._auc_rate = None
+        self.auc = ranking.AUC()
+        super(CustomAuc, self).__init__(output_transform=output_transform, device=device)
 
     @reinit__is_reduced
     def reset(self):
-        self._roc_list = []
-        super(CustomRoc, self).reset()
+        self._auc_list = []
+        super(CustomAuc, self).reset()
 
     @reinit__is_reduced
     def update(self, output):
-        y = output[0].cpu().numpy()
-        y_pred = output[1].tolist()
-        self._roc_list.append(roc(y, y_pred))
+        y = output[0].cpu().numpy().astype(int)
+        pd_scores = output[1].numpy()
+        self._auc_list.append(self.auc.compute(pd_scores = pd_scores, gt_pos =y))
 
-    @sync_all_reduce("_roc_list")
+    @sync_all_reduce("_auc_list")
     def compute(self):
-        return np.mean(self._roc_list)
+        return np.mean(self._auc_list)
 
 
 # def process_function()
-class CustomRoctop(Metric):
+class CustomAuc_top(Metric):
     '''
-    Calcualte Hit Rate
+    Calcualte AUC@k
     '''
-
     def __init__(self, output_transform=lambda x: [x['label_top'], x['y_pred_top']], device="cpu"):
-        self._roc_list = None
-        super(CustomRoctop, self).__init__(output_transform=output_transform, device=device)
+        self._auc_list = None
+        self.auc = ranking.AUC()
+        super(CustomAuc_top, self).__init__(output_transform=output_transform, device=device)
 
     @reinit__is_reduced
     def reset(self):
-        self._roc_list = []
-        super(CustomRoctop, self).reset()
+        self._auc_list = []
+        super(CustomAuc_top, self).reset()
 
     @reinit__is_reduced
     def update(self, output):
-        y = output[0]
-        y_pred = output[1]
-        self._roc_list.append(roc(y, y_pred))
+        y = output[0].astype(int)
+        pd_scores = output[1]
+        self._auc_list.append(self.auc.compute(pd_scores = pd_scores, gt_pos =y))
 
-    @sync_all_reduce("_roc_list")
+    @sync_all_reduce("_auc_list")
     def compute(self):
-        return np.mean(self._roc_list)
+        return np.mean(self._auc_list)
 
 
 class CustomRecall_top(Metric):
     '''
-    Calcualte Hit Rate
+    Calcualte Recall
     '''
-
-    def __init__(self, threshold, output_transform=lambda x: [x['label_top'], x['y_pred_top']], device="cpu"):
-        self._recall_list = None
-        self._threshold = threshold
+    # @hydra.main(version_base=None, config_path='../conf', config_name='config')
+    def __init__(self, k, output_transform=lambda x: [x['label'], x['y_indices']], device="cpu"):
+        self._recall_list_list = None
+        self._metric_r = ranking.Recall(k=k)
         super(CustomRecall_top, self).__init__(output_transform=output_transform, device=device)
 
     @reinit__is_reduced
@@ -178,11 +184,11 @@ class CustomRecall_top(Metric):
 
     @reinit__is_reduced
     def update(self, output):
-        y = output[0]
-        y_pred = output[1]
-        self._recall_list.append(recall(y, y_pred, self._threshold))
+        y = output[0].cpu().numpy()
+        y_indices = output[1]
+        self._recall_list.append(self._metric_r.compute(y, y_indices))
 
-    @sync_all_reduce("_precision_list")
+    @sync_all_reduce("_recall_list")
     def compute(self):
         return np.mean(self._recall_list)
 
@@ -191,10 +197,10 @@ class CustomPrecision_top(Metric):
     '''
     Calcualte Hit Rate
     '''
-
-    def __init__(self, threshold, output_transform=lambda x: [x['label_top'], x['y_pred_top']], device="cpu"):
+    # @hydra.main(version_base=None, config_path='../conf', config_name='config')
+    def __init__(self, k, output_transform=lambda x: [x['label'], x['y_indices']], device="cpu"):
         self._precision_list = None
-        self._threshold = threshold
+        self._metric_p = ranking.Precision(k=k)
         super(CustomPrecision_top, self).__init__(output_transform=output_transform, device=device)
 
     @reinit__is_reduced
@@ -204,9 +210,9 @@ class CustomPrecision_top(Metric):
 
     @reinit__is_reduced
     def update(self, output):
-        y = output[0]
-        y_pred = output[1]
-        self._precision_list.append(precision(y, y_pred, self._threshold))
+        y = output[0].cpu().numpy()
+        y_indices = output[1]
+        self._precision_list.append(self._metric_p.compute(y, y_indices))
 
     @sync_all_reduce("_precision_list")
     def compute(self):
