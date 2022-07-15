@@ -9,10 +9,9 @@ class EntityCat(nn.Module):
                  output_size, neurons_in_layers=[100], p=0.4):
         '''
         embedding_size: Contains the embedding size for the categorical columns
-        num_numerical_cols: Stores the total number of numerical columns
         output_size: The size of the output layer or the number of possible outputs.
         neurons_in_layers: List which contains number of neurons for all the neurons_in_layers.
-        p: Dropout with the default value of 0.5
+        p: Dropout with the default value of 0.4
 
         '''
         super(EntityCat, self).__init__()
@@ -68,7 +67,6 @@ class EntityCat_sbert(nn.Module):
                  output_size, word_weight, encode_array, neurons_in_layers=[100], p=0.4):
         '''
         embedding_size: Contains the embedding size for the categorical columns
-        num_numerical_cols: Stores the total number of numerical columns
         output_size: The size of the output layer or the number of possible outputs.
         neurons_in_layers: List which contains number of neurons for all the neurons_in_layers.
         p: Dropout with the default value of 0.4
@@ -110,7 +108,8 @@ class EntityCat_sbert(nn.Module):
 
     def _item_index(self, x_categorical):
         '''
-        The the index from the item enecoder array
+        The the index from the item enecoder array. Getting the corresponding embedding vector index 
+        by using the index of itemid from input.  
         '''
         itemids = x_categorical[:,1].cpu().numpy()
         item_index = self.sorter[np.searchsorted(self.encode_array, itemids, sorter=self.sorter)]
