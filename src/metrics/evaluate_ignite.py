@@ -3,8 +3,10 @@ import torch
 from sklearn.metrics import roc_auc_score, average_precision_score, recall_score, precision_score
 
 from ignite.metrics.metric import sync_all_reduce, reinit__is_reduced
-from ignite.metrics import  Metric
+from ignite.metrics import Metric
 from metrics import ranking
+from utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
+
 import hydra
 from omegaconf import DictConfig
 
@@ -31,13 +33,17 @@ def auc(gt_item, pred_prob):
     except:
         return 0
 
+
 def recall(gt, prob, th):
     y_pred = [1 if y >= th else 0 for y in prob]
     return recall_score(gt, y_pred, zero_division=0)
 
+
 def precision(gt, prob, th):
     y_pred = [1 if y >= th else 0 for y in prob]
     return precision_score(gt, y_pred, zero_division=0)
+
+
 #
 # def map(gt_item, pred_prob):
 #
@@ -69,6 +75,7 @@ class CustomHR(Metric):
     '''
     Calcualte Hit Rate
     '''
+
     def __init__(self, output_transform=lambda x: [x['pos_item'], x['reco_item']], device="cpu"):
         self._hit_list = None
         super(CustomHR, self).__init__(output_transform=output_transform, device=device)
@@ -134,7 +141,7 @@ class CustomAuc_new(Metric):
     def update(self, output):
         y = output[0].cpu().numpy().astype(int)
         pd_scores = output[1].cpu().numpy()
-        self._auc_list.append(self.auc.compute(pd_scores = pd_scores, gt_pos =y))
+        self._auc_list.append(self.auc.compute(pd_scores=pd_scores, gt_pos=y))
 
     @sync_all_reduce("_auc_list")
     def compute(self):
@@ -146,6 +153,7 @@ class CustomAuc_top_new(Metric):
     '''
     Calcualte AUC@k
     '''
+
     def __init__(self, output_transform=lambda x: [x['label_top'], x['y_pred_top']], device="cpu"):
         self._auc_list = None
         self.auc = ranking.AUC()
@@ -160,7 +168,7 @@ class CustomAuc_top_new(Metric):
     def update(self, output):
         y = output[0].astype(int)
         pd_scores = output[1]
-        self._auc_list.append(self.auc.compute(pd_scores = pd_scores, gt_pos =y))
+        self._auc_list.append(self.auc.compute(pd_scores=pd_scores, gt_pos=y))
 
     @sync_all_reduce("_auc_list")
     def compute(self):
@@ -171,6 +179,7 @@ class CustomRecall_top(Metric):
     '''
     Calcualte Recall
     '''
+
     # @hydra.main(version_base=None, config_path='../conf', config_name='config')
     def __init__(self, k, output_transform=lambda x: [x['label'], x['y_indices']], device="cpu"):
         self._recall_list_list = None
@@ -197,6 +206,7 @@ class CustomPrecision_top(Metric):
     '''
     Calcualte Hit Rate
     '''
+
     # @hydra.main(version_base=None, config_path='../conf', config_name='config')
     def __init__(self, k, output_transform=lambda x: [x['label'], x['y_indices']], device="cpu"):
         self._precision_list = None
@@ -217,6 +227,7 @@ class CustomPrecision_top(Metric):
     @sync_all_reduce("_precision_list")
     def compute(self):
         return np.mean(self._precision_list)
+
 
 class CustomAuc(Metric):
     '''
@@ -268,23 +279,34 @@ class CustomAuc_top(Metric):
         return np.mean(self._roc_list)
 
 
+def model_infer2(df_true, jobsid, usersid, model, u_i_matrix, n):
+    test_items_indices, test_items = indices_extract(df_true, jobsid, DEFAULT_ITEM_COL)
+    test_users_indices, test_users = indices_extract(df_true, usersid, DEFAULT_USER_COL)
+    test_items_rating = df_true[DEFAULT_RATING_COL].values
 
-def model_infer2(apps_true, jobsid, usersid,model, u_i_matrix, n):
-    test_items = apps_true.itemid.values
-    test_items_indices = np.where(np.isin(jobsid, test_items))
-    test_items_rating = apps_true.rating.values
-    test_users = apps_true[DEFAULT_USER_COL].unique()
-    test_user_indices = np.where(np.isin(usersid, test_users))[0]
-    ids, scores = model.recommend(test_user_indices, 
-                                  user_job_app[test_user_indices],
+    ids, scores = model.recommend(test_users_indices,
+                                  u_i_matrix[test_users_indices],
                                   N=n,
-                                  items=test_items_indices[0])
-    reco_jobsid = jobsid[ids][0]
-#     reco_jobsid = reco_jobsid.astype(np.int32)
-#     test_items = test_items.astype(np.int32)
-    test_items_sort_ind = np.argsort(test_items)
-    test_items_rating = test_items_rating[test_items_sort_ind]
-    reco_indices = np.searchsorted(test_items[test_items_sort_ind], reco_jobsid)
-    return test_items_rating, reco_indices, scores
+                                  items=test_items_indices)
+    # reco_jobsid = jobsid[ids][0]
+    reco_indices, test_items_rating = indices_search(test_items, jobsid, test_items_rating, ids)
+    return test_items_rating.flatten(), reco_indices.flatten(), scores.flatten()
 
 
+def indices_search(items, jobsid, rating, ids):
+    reco_jobsid = jobsid[ids]
+
+    sort_ind = np.argsort(items)
+    sort_rating, sort_item = rating[sort_ind], items[sort_ind]
+
+    sort_item_filter = sort_item[np.isin(sort_item,reco_jobsid)]
+    sort_rating_filter = sort_rating[np.isin(sort_item, reco_jobsid)]
+
+    reco_indices = np.searchsorted(sort_item_filter, reco_jobsid)
+    return reco_indices, sort_rating_filter
+
+
+def indices_extract(df, x_list, feature):
+    val = df[feature].values
+    indices = np.where(np.isin(x_list, val))[0]
+    return indices, val
