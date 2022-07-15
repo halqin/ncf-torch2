@@ -14,8 +14,6 @@
 # ============================================================================
 
 import unittest
-# import sys
-# sys.path.append('../../../src')
 import numpy as np
 
 from src.metrics.ranking import RankingMetric

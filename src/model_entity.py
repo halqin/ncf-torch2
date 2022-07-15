@@ -20,12 +20,6 @@ class EntityCat(nn.Module):
         # list of ModuleList objects for all categorical columns
         self.all_embeddings = nn.ModuleList([nn.Embedding(ni, nf) for ni, nf in embedding_size])
 
-        # drop out value for all neurons_in_layers
-        # self.embedding_dropout = nn.Dropout(p)
-
-        # list of 1 dimension batch normalization objects for all numerical columns
-        #         self.batch_norm_num = nn.BatchNorm1d(num_numerical_cols)
-
         # the number of categorical and numerical columns are added together and stored in input_size
         mlp_modules = nn.ModuleList()
         num_categorical_cols = sum((nf for ni, nf in embedding_size))
@@ -86,11 +80,6 @@ class EntityCat_sbert(nn.Module):
         self.sbert_embeddings = nn.Embedding.from_pretrained(word_weight, freeze=True)
         self.encode_array = encode_array
         self.sorter = np.argsort(self.encode_array)
-        # drop out value for all neurons_in_layers
-        # self.embedding_dropout = nn.Dropout(p)
-
-        # list of 1 dimension batch normalization objects for all numerical columns
-        #         self.batch_norm_num = nn.BatchNorm1d(num_numerical_cols)
 
         # the number of categorical and numerical columns are added together and stored in input_size
         mlp_modules = nn.ModuleList()
@@ -117,8 +106,16 @@ class EntityCat_sbert(nn.Module):
         for m in self.mlp_layers:
             if isinstance(m, nn.Linear):
                 nn.init.xavier_normal_(m.weight)
-        nn.init.kaiming_normal_(self.predict_layer.weight, a=1, nonlinearity='sigmoid')
-        
+        nn.init.kaiming_normal_(self.predict_layer.weight, a=1)
+
+    def _item_index(self, x_categorical):
+        '''
+        The the index from the item enecoder array
+        '''
+        itemids = x_categorical[:,1].cpu().numpy()
+        item_index = self.sorter[np.searchsorted(self.encode_array, itemids, sorter=self.sorter)]
+        item_index_tensor = torch.LongTensor(item_index)
+        return item_index_tensor   
 
     def forward(self, x_categorical):
         # this starts the embedding of categorical columns
@@ -132,16 +129,10 @@ class EntityCat_sbert(nn.Module):
         to_cat.append(self.sbert_embeddings(item_index_tensor))
         x = torch.cat(to_cat, 1)
         x = self.mlp_layers(x)
-        prediction = self.predict_layer(x)
-        return prediction
+        x = self.predict_layer(x)
+        x = torch.sigmoid(x)
+        return x
 
-    def _item_index(self, x_categorical):
-        '''
-        The the index from the item enecoder array
-        '''
-        itemids = x_categorical[:,1].cpu().numpy()
-        item_index = self.sorter[np.searchsorted(self.encode_array, itemids, sorter=self.sorter)]
-        item_index_tensor = torch.LongTensor(item_index)
-        return item_index_tensor
+
 
 
