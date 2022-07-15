@@ -9,11 +9,10 @@ import torch.optim as optim
 import torch.utils.data as data
 # from tensorboardX import SummaryWriter
 import tqdm
-import model
 import data_utils
 import model_entity
-import evaluate_entity
-from sklearn import metrics, preprocessing
+from metrics import evaluate_ignite
+from sklearn import preprocessing
 import config
 import data_process.neg_sample as ng_sample
 

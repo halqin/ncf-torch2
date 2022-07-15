@@ -114,7 +114,7 @@ def load_all(test_num=100):
     #     usecols=[0, 1], dtype={0: np.int32, 1: np.int32})
     #
     # # test_data_pos = pd.read_csv(
-    # #     config.test_rating,
+    # #     config.rating,
     # #     sep='\t', header=None, names=['user', 'item'],
     # #     usecols=[0, 1], dtype={0: np.int32, 1: np.int32})
     #

@@ -4,28 +4,26 @@
 # In[41]:
 
 
-import os
 import sys
 sys.path.append('../../src')
 import pandas as pd
 import numpy as np
 # import config
 import data_process.neg_sample as ng_sample
-from sklearn import metrics, preprocessing
+from sklearn import preprocessing
 import torch
 import torch.nn as nn
 import torch.utils.data as data
 import torch.optim as optim
-import tqdm
-import torch.nn.functional as F
 import random
-import evaluate_entity
+from metrics import evaluate_ignite
 from model_entity import EntityCat
 from data_utils import CatData
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 import time
-from utils.constants import DEFAULT_USER_COL,DEFAULT_ITEM_COL,DEFAULT_RATING_COL, DEFAULT_TIMESTAMP_COL
+from utils.constants import DEFAULT_USER_COL,DEFAULT_ITEM_COL,DEFAULT_RATING_COL
+
 # import argparse
 torch.manual_seed(0)
 
