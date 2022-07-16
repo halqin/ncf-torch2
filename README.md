@@ -6,13 +6,13 @@
 The training pipe jupyter notebook:
 
 ```
-src/jupyter/train_pipe.ipynb
+./jupyter/train_pipe.ipynb
 ```
 
 The model script:
 
 ```
-src/model_entity.py
+./src/model_entity.py
 ```
 
 There are two model classes in the script:  EntityCat, EntityCat_sbert.

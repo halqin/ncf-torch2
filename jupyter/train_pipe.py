@@ -5,7 +5,7 @@
 
 
 import sys
-sys.path.append('../../src')
+sys.path.append('../src')
 import pandas as pd
 import numpy as np
 # import config
@@ -52,9 +52,9 @@ device
 
 
 df_train1  = ng_sample.read_feather("../../data/jobs/leave_one_train.csv").iloc[:100,]
-df_train2 = pd.read_feather("../../data/jobs/leave_one_train_neg").iloc[:100,]
-df_test_ori = pd.read_feather("../../data/jobs/test_pos_neg").iloc[:101,]
-df_all_features = pd.read_csv('../../data/jobs/merged_sub_clean.csv')
+df_train2 = pd.read_feather("../data/jobs/leave_one_train_neg").iloc[:100, ]
+df_test_ori = pd.read_feather("../data/jobs/test_pos_neg").iloc[:101, ]
+df_all_features = pd.read_csv('../data/jobs/merged_sub_clean.csv')
 
 
 # In[6]:

@@ -4,8 +4,8 @@ from sklearn.metrics import roc_auc_score, average_precision_score, recall_score
 
 from ignite.metrics.metric import sync_all_reduce, reinit__is_reduced
 from ignite.metrics import Metric
-from metrics import ranking
-from utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
+from src.metrics import ranking
+from src.utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
 
 import hydra
 from omegaconf import DictConfig
@@ -13,7 +13,7 @@ from omegaconf import DictConfig
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
-# device = 'cpu'
+
 def hit(gt_item, pred_items):
     if gt_item in pred_items:
         return 1
