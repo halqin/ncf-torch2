@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import tqdm
 import random
-from utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
+from src.utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
 
 
 def random_sample(data_gt, all_data, ng_num, train_neg=None, test=False):

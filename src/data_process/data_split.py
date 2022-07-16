@@ -1,9 +1,9 @@
 import pandas as pd
-import sys
+# import sys
 import os
 import numpy as np
-sys.path.append('../../src')
-from utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
+# sys.path.append('../../src')
+from src.utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
 
 
 def _load_all(path_read):
