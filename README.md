@@ -2,7 +2,12 @@
 
 ### A pytorch implementation job recommendation system 
 
+## Setup
+``
+pip install -e . 
+``
 
+## Model training 
 The training pipe jupyter notebook:
 
 ```
