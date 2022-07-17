@@ -4,7 +4,7 @@ import scipy.sparse as sp
 import torch.utils.data as data
 from collections import OrderedDict
 # from src import config
-from data_process.neg_sample import read_feather
+from src.data_process.neg_sample import read_feather
 import torch
 torch.manual_seed(0)
 np.random.seed(0)
@@ -114,7 +114,7 @@ def load_all(test_num=100):
     #     usecols=[0, 1], dtype={0: np.int32, 1: np.int32})
     #
     # # test_data_pos = pd.read_csv(
-    # #     config.test_rating,
+    # #     config.rating,
     # #     sep='\t', header=None, names=['user', 'item'],
     # #     usecols=[0, 1], dtype={0: np.int32, 1: np.int32})
     #

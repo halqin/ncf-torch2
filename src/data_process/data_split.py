@@ -1,8 +1,9 @@
 import pandas as pd
-import sys
+# import sys
 import os
-sys.path.append('../../src')
-from utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
+import numpy as np
+# sys.path.append('../../src')
+from src.utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
 
 
 def _load_all(path_read):
@@ -29,6 +30,13 @@ def main(path_read, path1, path2):
     all_data = _load_all(path_read)
     _leave_one_out(all_data, path1, path2)
 
+
+def data_split_user(df_train, val_size=0.2):
+    unique_user = df_train[DEFAULT_USER_COL].unique()
+    val_user = np.random.choice(unique_user, int(val_size*len(unique_user)), replace=False)
+    df_train_split = df_train[~(df_train[DEFAULT_USER_COL].isin(val_user))]
+    df_val_split = df_train[df_train[DEFAULT_USER_COL].isin(val_user)]
+    return df_train_split, df_val_split
 
 if __name__ == "__main__":
     path_read = "../../data/jobs/merged_sub.csv"

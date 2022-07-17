@@ -1,5 +1,5 @@
-import os
-
+import sys
+sys.path.append('../../../src')
 from src.data_utils import load_all
 import pytest
 import pandas as pd

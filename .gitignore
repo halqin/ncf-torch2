@@ -143,3 +143,8 @@ config.py
 /Data
 .idea
 runs
+wandb
+checkpoint
+.DS_Store
+._.DS_Store
+*.sav
