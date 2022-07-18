@@ -18,4 +18,4 @@ file:
     title_emb: job_title_embed3
     hdf5: leave_one_train.hdf5
 path:
-  root: ../../data/jobs
+  root: ../data/jobs

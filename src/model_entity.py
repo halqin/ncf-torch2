@@ -2,6 +2,7 @@ from numpy import std
 import torch
 import torch.nn as nn
 import numpy as np
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 torch.manual_seed(0)
 
 class EntityCat(nn.Module):
@@ -113,8 +114,7 @@ class EntityCat_sbert(nn.Module):
         '''
         itemids = x_categorical[:,1].cpu().numpy()
         item_index = self.sorter[np.searchsorted(self.encode_array, itemids, sorter=self.sorter)]
-        item_index_tensor = torch.LongTensor(item_index)
-        return item_index_tensor   
+        return torch.LongTensor(item_index).to(device)
 
     def forward(self, x_categorical):
         # this starts the embedding of categorical columns
@@ -125,7 +125,8 @@ class EntityCat_sbert(nn.Module):
             # print('hao----', emb_layer.weight.grad)
             to_cat.append(emb_layer(x_categorical[:, col_index]))
         item_index_tensor = self._item_index(x_categorical)
-        to_cat.append(self.sbert_embeddings(item_index_tensor))
+        sbert_tensor = self.sbert_embeddings(item_index_tensor)
+        to_cat.append(sbert_tensor)
         x = torch.cat(to_cat, 1)
         x = self.mlp_layers(x)
         x = self.predict_layer(x)
