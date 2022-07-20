@@ -354,6 +354,29 @@ class Recall(MeasureAtK):
         return tp / tp_fn
 
 
+
+class HitRate(MeasureAtK):
+
+    def __init__(self, k=-1):
+        # print('haooo---')
+        super().__init__(name="HitRate@{}".format(k), k=k)
+
+    def compute(self, gt_pos, **kwargs):
+        # if self.k > 0:
+        #     truncated_pd_rank = pd_rank[: self.k]
+
+        # else:
+        #     truncated_pd_rank = pd_rank
+        if self.k > 0 :
+            gt_pos_k = gt_pos[: self.k]
+        else:
+            gt_pos_k = gt_pos
+
+        if sum(gt_pos_k)==0:
+            return 0
+        else:
+            return 1
+
 class FMeasure(MeasureAtK):
     """F-measure@K.
 
@@ -434,6 +457,59 @@ class AUC(RankingMetric):
             AUC score.
 
         """
+        if gt_neg is None:
+            gt_neg = np.logical_not(gt_pos)
+
+        pos_scores = pd_scores[gt_pos.astype(np.bool)]
+        neg_scores = pd_scores[gt_neg.astype(np.bool)]
+        ui_scores = np.repeat(pos_scores, len(neg_scores))
+        uj_scores = np.tile(neg_scores, len(pos_scores))
+        if len(uj_scores)==0:
+            return 0
+        else:
+            return (ui_scores > uj_scores).sum() / len(uj_scores)
+
+
+class AUC_k(RankingMetric):
+    """Area Under the ROC Curve (AUC) @ k.
+
+    References
+    ----------
+    https://arxiv.org/ftp/arxiv/papers/1205/1205.2618.pdf
+
+    """
+
+    def __init__(self, k):
+        # RankingMetric.__init__(self, name="AUC@k")
+        RankingMetric.__init__(self, name="AUC@{}".format(k), k=k)
+
+    def compute(self, pd_scores, gt_pos, pd_rank, gt_neg=None, **kwargs):
+        """Compute Area Under the ROC Curve (AUC).
+
+        Parameters
+        ----------
+        pd_scores: Numpy array
+            Prediction scores for items.
+
+        gt_pos: Numpy array
+            Binary vector of positive items.
+
+        gt_neg: Numpy array, optional
+            Binary vector of negative items.
+            If None, negation of gt_pos will be used.
+
+        **kwargs: For compatibility
+
+        Returns
+        -------
+        res: A scalar
+            AUC score.
+
+        """
+        pd_rank_k = pd_rank[:self.k]
+        gt_pos = gt_pos[:self.k]
+        pd_scores = pd_scores[pd_rank_k]
+
         if gt_neg is None:
             gt_neg = np.logical_not(gt_pos)
 

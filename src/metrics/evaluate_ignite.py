@@ -289,8 +289,9 @@ def model_infer2(df_true, jobsid, usersid, model, u_i_matrix, n):
                                   N=n,
                                   items=test_items_indices)
     # reco_jobsid = jobsid[ids][0]
-    reco_indices, test_items_rating = indices_search(test_items, jobsid, test_items_rating, ids)
+    test_items_rating, reco_indices = indices_search(test_items, jobsid, test_items_rating, ids)
     return test_items_rating.flatten(), reco_indices.flatten(), scores.flatten()
+    # return test_items_rating, reco_indices, scores
 
 
 def indices_search(items, jobsid, rating, ids):
@@ -303,7 +304,7 @@ def indices_search(items, jobsid, rating, ids):
     sort_rating_filter = sort_rating[np.isin(sort_item, reco_jobsid)]
 
     reco_indices = np.searchsorted(sort_item_filter, reco_jobsid)
-    return reco_indices, sort_rating_filter
+    return  sort_rating_filter[reco_indices],reco_indices
 
 
 def indices_extract(df, x_list, feature):
