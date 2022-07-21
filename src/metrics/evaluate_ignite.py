@@ -288,23 +288,20 @@ def model_infer2(df_true, jobsid, usersid, model, u_i_matrix, n):
                                   u_i_matrix[test_users_indices],
                                   N=n,
                                   items=test_items_indices)
-    # reco_jobsid = jobsid[ids][0]
-    test_items_rating, reco_indices = indices_search(test_items, jobsid, test_items_rating, ids)
-    return test_items_rating.flatten(), reco_indices.flatten(), scores.flatten()
-    # return test_items_rating, reco_indices, scores
+    test_items_rating, reco_indices, scores = indices_search(test_items, jobsid, test_items_rating, ids, scores)
+    return test_items_rating, reco_indices, scores
 
 
-def indices_search(items, jobsid, rating, ids):
-    reco_jobsid = jobsid[ids]
-
+def indices_search(items, jobsid, rating, ids_ui, scores):
+    reco_jobsid = jobsid[ids_ui]
     sort_ind = np.argsort(items)
     sort_rating, sort_item = rating[sort_ind], items[sort_ind]
-
-    sort_item_filter = sort_item[np.isin(sort_item,reco_jobsid)]
-    sort_rating_filter = sort_rating[np.isin(sort_item, reco_jobsid)]
-
-    reco_indices = np.searchsorted(sort_item_filter, reco_jobsid)
-    return  sort_rating_filter[reco_indices],reco_indices
+    sort_item_filter, sort_rating_filter = sort_item[np.isin(sort_item,reco_jobsid)], \
+                                           sort_rating[np.isin(sort_item, reco_jobsid)] # only searchsort recommended items
+    ids_gt = np.searchsorted(sort_item_filter, reco_jobsid)
+    sort_ids_gt_ind = np.argsort(ids_gt)
+    scores = scores.flatten()[sort_ids_gt_ind]
+    return  sort_rating_filter.flatten(),ids_gt.flatten(), scores.flatten()
 
 
 def indices_extract(df, x_list, feature):

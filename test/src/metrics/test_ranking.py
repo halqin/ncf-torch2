@@ -179,8 +179,8 @@ class TestRanking(unittest.TestCase):
         rec_list = np.asarray([0, 1, 2])
         self.assertEqual((1/3), prec_3.compute(ground_truth, rec_list))
 
-        ground_truth = np.asarray([0, 1, 0, 0, 0])  # [0, 0, 1]
-        rec_list = np.asarray([4, 0, 3, 2, 1])  # [1, 1, 1]
+        ground_truth = np.asarray([0, 1, 0, 0, 0]) 
+        rec_list = np.asarray([4, 0, 3, 2, 1])  
         self.assertEqual(0, prec_3.compute(ground_truth, rec_list))
 
     def test_recall(self):

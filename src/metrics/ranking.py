@@ -358,21 +358,16 @@ class Recall(MeasureAtK):
 class HitRate(MeasureAtK):
 
     def __init__(self, k=-1):
-        # print('haooo---')
         super().__init__(name="HitRate@{}".format(k), k=k)
 
-    def compute(self, gt_pos, **kwargs):
-        # if self.k > 0:
-        #     truncated_pd_rank = pd_rank[: self.k]
-
-        # else:
-        #     truncated_pd_rank = pd_rank
-        if self.k > 0 :
-            gt_pos_k = gt_pos[: self.k]
+    def compute(self, gt_pos, pd_rank, **kwargs):
+        if self.k > 0:
+            truncated_pd_rank = pd_rank[: self.k]
         else:
-            gt_pos_k = gt_pos
+            truncated_pd_rank = pd_rank
 
-        if sum(gt_pos_k)==0:
+        gt_pos_k = gt_pos[truncated_pd_rank]
+        if sum(gt_pos_k) == 0:
             return 0
         else:
             return 1
@@ -470,7 +465,7 @@ class AUC(RankingMetric):
             return (ui_scores > uj_scores).sum() / len(uj_scores)
 
 
-class AUC_k(RankingMetric):
+class AUC_K(RankingMetric):
     """Area Under the ROC Curve (AUC) @ k.
 
     References
@@ -506,9 +501,13 @@ class AUC_k(RankingMetric):
             AUC score.
 
         """
+        # print('hao----0', pd_rank)
         pd_rank_k = pd_rank[:self.k]
-        gt_pos = gt_pos[:self.k]
+        # print('hao------1')
+        gt_pos = gt_pos[pd_rank_k]
+        # print('hao------2',pd_scores)
         pd_scores = pd_scores[pd_rank_k]
+        # print('hao------3',pd_scores)
 
         if gt_neg is None:
             gt_neg = np.logical_not(gt_pos)
