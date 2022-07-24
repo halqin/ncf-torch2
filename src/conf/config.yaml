@@ -10,12 +10,35 @@ params:
   emb_dim: 50 #The maximum embedding dimension
   patience: 10 #Number of events to wait if no improvement and then stop the training.
 
-file:
+data:
+    # train_pos: leave_one_train.csv
+    # train_neg: leave_one_train_neg
+    test: test_pos_neg
+    all_features_sub: merged_sub_clean.csv
+    all_features: merged_all_clean.csv
+    title_emb: job_title_embed3
+    # hdf5: leave_one_train.hdf5
+meta_file:
+    apps: apps.tsv
+    jobs: jobs.tsv
+    user_histroy: user_history.tsv
+    users: users.tsv
+leave_one_data:
     train_pos: leave_one_train.csv
     train_neg: leave_one_train_neg
-    test: test_pos_neg
-    all_features: merged_sub_clean.csv
-    title_emb: job_title_embed3
+    test_pos_neg: test_pos_neg
     hdf5: leave_one_train.hdf5
+global_temp_data:
+    train_pos: train_pos
+    test_pos: test_pos
+    train_neg: train_neg
+    test_neg: test_neg
 path:
   root: ../data/jobs
+  root_tsv: ../data/jobs/tsv
+  global_temp: ../data/jobs/global_temp
+  leave_one: ../data/jobs/leave_one
+name:
+  cf_name: my-cf-project 
+
+

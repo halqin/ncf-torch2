@@ -1,6 +1,6 @@
 import os
-import sys
-sys.path.append('../../src')
+# import sys
+# sys.path.append('../../src')
 import pandas as pd
 # import modin.pandas as pd
 import numpy as np
@@ -73,8 +73,7 @@ def read_feather(path_read):
     extension = os.path.splitext(path_read)[-1]
     if extension == '.csv':
         data = pd.read_csv(
-            path_read, usecols=[DEFAULT_USER_COL, DEFAULT_ITEM_COL]
-        )
+            path_read, usecols=[DEFAULT_USER_COL, DEFAULT_ITEM_COL])
     else:
         data = pd.read_feather(
             path_read, columns=[DEFAULT_USER_COL, DEFAULT_ITEM_COL])
