@@ -1,6 +1,4 @@
 import os
-# import sys
-# sys.path.append('../../src')
 import pandas as pd
 # import modin.pandas as pd
 import numpy as np
@@ -9,21 +7,33 @@ import random
 from src.utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_TIMESTAMP_COL, DEFAULT_RATING_COL
 
 
-def random_sample(data_gt, all_data, ng_num, train_neg=None, test=False):
+def random_sample(data_pos, all_data, ng_num, train_neg=None, test=False):
+    '''
+    data_pos: positive data
+    all_data: the negative sample will be sampled from all dataset
+    ng_num: the number of nagative sample
+    '''
     neg_list = []
     all_items = set(all_data[DEFAULT_ITEM_COL])
-    for index, value in enumerate(tqdm.tqdm(data_gt.groupby(DEFAULT_USER_COL))):
-        # for i in tqdm.tqdm(data_gt.values):
+    for index, value in enumerate(tqdm.tqdm(data_pos.groupby(DEFAULT_USER_COL))):
+        # for i in tqdm.tqdm(data_pos.values):
         train_user_item = set(all_data[all_data[DEFAULT_USER_COL] == value[0]][DEFAULT_ITEM_COL])
         if test:
             train_user_item_neg = set(train_neg[train_neg[DEFAULT_USER_COL] == value[0]][DEFAULT_ITEM_COL])
             item_diff = all_items - train_user_item - train_user_item_neg
+            random.seed(10)
+            try:
+                neg = random.sample(item_diff, ng_num-len(value[1]))
+            except:
+                print('hao----1',len(item_diff))
+                print('hao----2', ng_num-len(value[1]))
+                print('hao----3', len(train_user_item))
+                print('hao----4', len(train_user_item_neg))
+            neg_list = keep_pos_test(neg_list, value)
         else:
             item_diff = all_items - train_user_item
-        random.seed(10)
-        neg = random.sample(item_diff, ng_num * len(value[1]))
-        if test:
-            neg_list = keep_pos_test(neg_list, value)
+            random.seed(10)
+            neg = random.sample(item_diff, ng_num * len(value[1]))
         for j in neg:
             neg_list.append([value[0], j, 0])
     df_neg = pd.DataFrame(neg_list, columns=[DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_RATING_COL]).reset_index(
@@ -89,8 +99,8 @@ def main(path_read_all, path_read_goal, path_save, ng_num, test, path_read_neg=N
     train_neg = None
     if test:
         train_neg = read_feather(path_read_neg)
-    ng_data = random_sample(data, all_data, ng_num, train_neg, test)
-    save_data(ng_data, path_save)
+    data_neg = random_sample(data, all_data, ng_num, train_neg, test)
+    save_data(data_neg, path_save)
 
 if __name__ == '__main__':
     # path_read_all = '../../data/jobs/merged_sub_clean.csv'
