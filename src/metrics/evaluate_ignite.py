@@ -76,8 +76,9 @@ class CustomHR(Metric):
     Calcualte Hit Rate
     '''
 
-    def __init__(self, output_transform=lambda x: [x['pos_item'], x['reco_item']], device="cpu"):
+    def __init__(self, k, output_transform=lambda x: [x['label'], x['y_indices']], device="cpu"):
         self._hit_list = None
+        self._metric_hr = ranking.HitRate(k=k)
         super(CustomHR, self).__init__(output_transform=output_transform, device=device)
 
     @reinit__is_reduced
@@ -87,9 +88,10 @@ class CustomHR(Metric):
 
     @reinit__is_reduced
     def update(self, output):
-        gt_item = output[0]
-        reco_item = output[1]
-        self._hit_list.append(hit(gt_item, reco_item))
+        y = output[0].cpu().numpy()
+        y_indices = output[1]
+        self._hr_list.append(self._metric_hr.compute(y, y_indices))
+
 
     @sync_all_reduce("_hit_list")
     def compute(self):
@@ -288,22 +290,20 @@ def model_infer2(df_true, jobsid, usersid, model, u_i_matrix, n):
                                   u_i_matrix[test_users_indices],
                                   N=n,
                                   items=test_items_indices)
-    # reco_jobsid = jobsid[ids][0]
-    reco_indices, test_items_rating = indices_search(test_items, jobsid, test_items_rating, ids)
-    return test_items_rating.flatten(), reco_indices.flatten(), scores.flatten()
+    test_items_rating, reco_indices, scores = indices_search(test_items, jobsid, test_items_rating, ids, scores)
+    return test_items_rating, reco_indices, scores
 
 
-def indices_search(items, jobsid, rating, ids):
-    reco_jobsid = jobsid[ids]
-
+def indices_search(items, jobsid, rating, ids_ui, scores):
+    reco_jobsid = jobsid[ids_ui]
     sort_ind = np.argsort(items)
     sort_rating, sort_item = rating[sort_ind], items[sort_ind]
-
-    sort_item_filter = sort_item[np.isin(sort_item,reco_jobsid)]
-    sort_rating_filter = sort_rating[np.isin(sort_item, reco_jobsid)]
-
-    reco_indices = np.searchsorted(sort_item_filter, reco_jobsid)
-    return reco_indices, sort_rating_filter
+    sort_item_filter, sort_rating_filter = sort_item[np.isin(sort_item,reco_jobsid)], \
+                                           sort_rating[np.isin(sort_item, reco_jobsid)] # only searchsort recommended items
+    ids_gt = np.searchsorted(sort_item_filter, reco_jobsid)
+    sort_ids_gt_ind = np.argsort(ids_gt)
+    scores = scores.flatten()[sort_ids_gt_ind]
+    return  sort_rating_filter.flatten(),ids_gt.flatten(), scores.flatten()
 
 
 def indices_extract(df, x_list, feature):

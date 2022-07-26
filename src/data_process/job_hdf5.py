@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import pandas as pd
 from scipy.sparse import coo_matrix, csr_matrix
-from utils.constants import DEFAULT_USER_COL,DEFAULT_ITEM_COL,DEFAULT_RATING_COL, DEFAULT_TIMESTAMP_COL
+from src.utils.constants import DEFAULT_USER_COL,DEFAULT_ITEM_COL,DEFAULT_RATING_COL, DEFAULT_TIMESTAMP_COL
 
 
 def _read_dataframe(filename, feather, logger):

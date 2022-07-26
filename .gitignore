@@ -148,3 +148,4 @@ checkpoint
 .DS_Store
 ._.DS_Store
 *.sav
+.vscode/
