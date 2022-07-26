@@ -64,8 +64,7 @@ def test_random_sample(all_data, test_data, train_data_pos, train_data_neg):
         assert len(bool_set) == 1, 'There are items be both negative and postive'
 
     df_result1 = random_sample(df_test2, all_data, 3, df_train_neg_gt1, True)
-    assert_series_equal(pd.Series([4, 5, 13, 7, 10 ]), pd.Series(df_result1[DEFAULT_ITEM_COL]), check_names=False)
+    assert_series_equal(pd.Series([4, 5, 13 ]), pd.Series(df_result1[DEFAULT_ITEM_COL]), check_names=False)
 
     df_result2 = random_sample(df_test1, all_data, 3, df_train_neg_gt2, True)
-    assert_series_equal(pd.Series([4, 5, 10,11,12, 7, 13, 5, 10]), pd.Series(df_result2[DEFAULT_ITEM_COL]), check_names=False)
-
+    assert_series_equal(pd.Series([4, 5, 10,7,13, 5]), pd.Series(df_result2[DEFAULT_ITEM_COL]), check_names=False)

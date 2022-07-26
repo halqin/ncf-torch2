@@ -39,6 +39,7 @@ path:
   root_tsv: ../data/jobs/tsv
   global_temp: ../data/jobs/global_temp
   leave_one: ../data/jobs/leave_one
+  leave_one_cf: ../../data/jobs/leave_one
 name:
   cf_name: my-cf-project 
 

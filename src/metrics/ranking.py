@@ -501,13 +501,9 @@ class AUC_K(RankingMetric):
             AUC score.
 
         """
-        # print('hao----0', pd_rank)
         pd_rank_k = pd_rank[:self.k]
-        # print('hao------1')
         gt_pos = gt_pos[pd_rank_k]
-        # print('hao------2',pd_scores)
         pd_scores = pd_scores[pd_rank_k]
-        # print('hao------3',pd_scores)
 
         if gt_neg is None:
             gt_neg = np.logical_not(gt_pos)
@@ -553,6 +549,53 @@ class MAP(RankingMetric):
             AP score.
 
         """
+        relevant = gt_pos.astype(np.bool)
+        rank = rankdata(-pd_scores, "max")[relevant]
+        L = rankdata(-pd_scores[relevant], "max")
+        ans = (L / rank).mean()
+
+        return ans
+
+
+class MAP_K(RankingMetric):
+    """Mean Average Precision (MAP@k).
+
+    References
+    ----------
+    https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Mean_average_precision
+
+    """
+
+    def __init__(self, k):
+        RankingMetric.__init__(self, name="MAP@K".format(k), k=k)
+
+    def compute(self, pd_scores, gt_pos, pd_rank, **kwargs):
+        """Compute Average Precision.
+
+        Parameters
+        ----------
+        pd_scores: Numpy array
+            Prediction scores for items.
+
+        gt_pos: Numpy array
+            Binary vector of positive items.
+
+        pd_rank: Numpy array
+            Item ranking prediction.
+
+        **kwargs: For compatibility
+
+        Returns
+        -------
+        res: A scalar
+            AP score.
+
+        """
+
+        pd_rank_k = pd_rank[:self.k]
+        gt_pos = gt_pos[pd_rank_k]
+        pd_scores = pd_scores[pd_rank_k]
+
         relevant = gt_pos.astype(np.bool)
         rank = rankdata(-pd_scores, "max")[relevant]
         L = rankdata(-pd_scores[relevant], "max")

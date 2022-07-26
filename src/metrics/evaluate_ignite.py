@@ -76,8 +76,9 @@ class CustomHR(Metric):
     Calcualte Hit Rate
     '''
 
-    def __init__(self, output_transform=lambda x: [x['pos_item'], x['reco_item']], device="cpu"):
+    def __init__(self, k, output_transform=lambda x: [x['label'], x['y_indices']], device="cpu"):
         self._hit_list = None
+        self._metric_hr = ranking.HitRate(k=k)
         super(CustomHR, self).__init__(output_transform=output_transform, device=device)
 
     @reinit__is_reduced
@@ -87,9 +88,10 @@ class CustomHR(Metric):
 
     @reinit__is_reduced
     def update(self, output):
-        gt_item = output[0]
-        reco_item = output[1]
-        self._hit_list.append(hit(gt_item, reco_item))
+        y = output[0].cpu().numpy()
+        y_indices = output[1]
+        self._hr_list.append(self._metric_hr.compute(y, y_indices))
+
 
     @sync_all_reduce("_hit_list")
     def compute(self):

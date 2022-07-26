@@ -22,13 +22,7 @@ def random_sample(data_pos, all_data, ng_num, train_neg=None, test=False):
             train_user_item_neg = set(train_neg[train_neg[DEFAULT_USER_COL] == value[0]][DEFAULT_ITEM_COL])
             item_diff = all_items - train_user_item - train_user_item_neg
             random.seed(10)
-            try:
-                neg = random.sample(item_diff, ng_num-len(value[1]))
-            except:
-                print('hao----1',len(item_diff))
-                print('hao----2', ng_num-len(value[1]))
-                print('hao----3', len(train_user_item))
-                print('hao----4', len(train_user_item_neg))
+            neg = random.sample(item_diff, ng_num-len(value[1]))
             neg_list = keep_pos_test(neg_list, value)
         else:
             item_diff = all_items - train_user_item
