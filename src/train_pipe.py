@@ -53,9 +53,10 @@ else:
 
 
 class TrainPipe(ABC):
-    def __init__(self):
+    def __init__(self, wandb_enable):
         # self.use_amp = None
         self.read_dataset()
+        self.wandb_enable = wandb_enable
 
     @abstractmethod
     def read_dataset(self):
@@ -129,7 +130,6 @@ class TrainPipe(ABC):
     @abstractmethod
     def wandb_init(self):
         pass
-
 
     def run(self):
         self.read_dataset()
@@ -288,73 +288,78 @@ class TrainPipe(ABC):
         pbar = ProgressBar(persist=False)
         pbar.attach(trainer)
         # trainer.run(train_loader, max_epochs=2)
-        self.wandb_init()
+        if self.wandb_enable:
+            self.wandb_init()
 
-        to_save = {'model': self.model}
-        checkpoint_handler = ModelCheckpoint(
-            self.wandb_logger.run.dir,
-            n_saved=1, filename_prefix='best',
-            score_name="auc",
-            global_step_transform=global_step_from_engine(trainer)
-        )
+            to_save = {'model': self.model}
+            checkpoint_handler = ModelCheckpoint(
+                self.wandb_logger.run.dir,
+                n_saved=1, filename_prefix='best',
+                score_name="auc",
+                global_step_transform=global_step_from_engine(trainer)
+            )
 
-        val_evaluator.add_event_handler(Events.COMPLETED, checkpoint_handler, to_save)
+            val_evaluator.add_event_handler(Events.COMPLETED, checkpoint_handler, to_save)
 
-        self.wandb_logger.attach_output_handler(
-            trainer,
-            event_name=Events.ITERATION_COMPLETED,
-            tag="training",
-            output_transform=lambda loss: {"loss": loss}
-        )
+            self.wandb_logger.attach_output_handler(
+                trainer,
+                event_name=Events.ITERATION_COMPLETED,
+                tag="training",
+                output_transform=lambda loss: {"loss": loss}
+            )
 
-        self.wandb_logger.attach_output_handler(
-            train_evaluator,
-            event_name=Events.EPOCH_COMPLETED,
-            tag="training",
-            metric_names=['loss', 'auc'],
-            global_step_transform=lambda *_: trainer.state.iteration,
-        )
+            self.wandb_logger.attach_output_handler(
+                train_evaluator,
+                event_name=Events.EPOCH_COMPLETED,
+                tag="training",
+                metric_names=['loss', 'auc'],
+                global_step_transform=lambda *_: trainer.state.iteration,
+            )
 
-        self.wandb_logger.attach_output_handler(
-            val_evaluator,
-            event_name=Events.EPOCH_COMPLETED,
-            tag="validation",
-            metric_names=['loss', "auc"],
-            global_step_transform=lambda *_: trainer.state.iteration,
-        )
+            self.wandb_logger.attach_output_handler(
+                val_evaluator,
+                event_name=Events.EPOCH_COMPLETED,
+                tag="validation",
+                metric_names=['loss', "auc"],
+                global_step_transform=lambda *_: trainer.state.iteration,
+            )
 
-        self.wandb_logger.attach_output_handler(
-            test_evaluator,
-            event_name=Events.COMPLETED,
-            tag="test",
-            metric_names=['loss', "auc", 'hr', 'ndcg', 'auc_top', 'recall_top', 'precision_top'],
-            global_step_transform=lambda *_: trainer.state.iteration,
-        )
+            self.wandb_logger.attach_output_handler(
+                test_evaluator,
+                event_name=Events.COMPLETED,
+                tag="test",
+                metric_names=['loss', "auc", 'hr', 'ndcg', 'auc_top', 'recall_top', 'precision_top'],
+                global_step_transform=lambda *_: trainer.state.iteration,
+            )
 
-        self.wandb_logger.attach_opt_params_handler(
-            trainer,
-            event_name=Events.ITERATION_STARTED,
-            optimizer=self.optimizer,
-            param_name='lr'  # optional
-        )
+            self.wandb_logger.attach_opt_params_handler(
+                trainer,
+                event_name=Events.ITERATION_STARTED,
+                optimizer=self.optimizer,
+                param_name='lr'  # optional
+            )
 
-        # wandb_logger.watch(model)
-        trainer.run(train_loader, max_epochs=EPOCHS)
-        self.wandb_logger.close()
+            # wandb_logger.watch(model)
+            trainer.run(train_loader, max_epochs=EPOCHS)
+            self.wandb_logger.close()
+        else:
+            trainer.run(train_loader, max_epochs=EPOCHS)
+
 
 class model_leave_one(TrainPipe):
+    def __init__(self, wandb_enable: bool):
+        super().__init__(wandb_enable=wandb_enable)
+        # self.wanab_enable = wandb_enable
+
     def read_dataset(self):
         if device.type == 'cpu':
             self.use_amp = False
             self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
             self.df_train_neg = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_neg))
-            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.test_pos_neg)).iloc[
-                               :202, ]
+            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.test_pos_neg)).iloc[:202, ]
             self.df_all_features = pd.read_csv(pathlib.Path(cfg.path.root, cfg.data.all_features))
             self.df_train_pos = self.df_train_pos.sort_values(by=[DEFAULT_USER_COL]).iloc[:100, ].reset_index(drop=True)
-            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[
-                                :100 * cfg.params.neg_train, ].reset_index(
-                drop=True)
+            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[:100 * cfg.params.neg_train, ].reset_index(drop=True)
         else:
             self.use_amp = True
             self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
@@ -402,7 +407,6 @@ class model_leave_one(TrainPipe):
                                       worker_init_fn=self.seed_worker, generator=g)
         return train_loader, val_loader, test_loader
 
-
     def wandb_init(self):
         config_dict = dict(cfg.params)
         config_dict['Features'] = '-'.join(self.user_features + self.item_features)
@@ -415,15 +419,21 @@ class model_leave_one(TrainPipe):
 
 
 class model_temp(TrainPipe):
+    def __init__(self, wandb_enable: bool):
+        super().__init__(wandb_enable=wandb_enable)
+
     def read_dataset(self):
         if device.type == 'cpu':
             self.use_amp = False
-            self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_pos))
+            self.df_train_pos = ng_sample.read_feather(
+                pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_pos))
             self.df_train_neg = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_neg))
-            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.test_neg)).iloc[:100, ]
+            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.test_neg)).iloc[
+                               :100, ]
             self.df_all_features = pd.read_csv(pathlib.Path(cfg.path.root, cfg.data.all_features))
             self.df_train_pos = self.df_train_pos.sort_values(by=[DEFAULT_USER_COL]).iloc[:100, ].reset_index(drop=True)
-            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[:100 * cfg.params.neg_train, ].reset_index(drop=True)
+            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[
+                                :100 * cfg.params.neg_train, ].reset_index(drop=True)
         else:
             self.use_amp = True
             self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
@@ -469,7 +479,6 @@ class model_temp(TrainPipe):
                                       worker_init_fn=self.seed_worker, generator=g)
         return train_loader, val_loader, test_loader
 
-
     def wandb_init(self):
         config_dict = dict(cfg.params)
         config_dict['Features'] = '-'.join(self.user_features + self.item_features)
@@ -482,8 +491,5 @@ class model_temp(TrainPipe):
 
 
 if __name__ == "__main__":
-    train = model_leave_one()
+    train = model_leave_one(wandb_enable=True)
     train.run()
-
-
-
