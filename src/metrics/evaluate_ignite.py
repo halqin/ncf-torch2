@@ -90,7 +90,7 @@ class CustomHR(Metric):
     def update(self, output):
         y = output[0].cpu().numpy()
         y_indices = output[1]
-        self._hr_list.append(self._metric_hr.compute(y, y_indices))
+        self._hit_list.append(self._metric_hr.compute(y, y_indices))
 
 
     @sync_all_reduce("_hit_list")
