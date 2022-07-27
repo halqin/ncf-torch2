@@ -431,15 +431,16 @@ class model_temp(TrainPipe):
             self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[:100 * cfg.params.neg_train, ].reset_index(drop=True)
         else:
             self.use_amp = True
-            self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
-            self.df_train_neg = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_neg))
-            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.test_pos_neg))
+            self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_pos))
+            self.df_train_neg = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_neg))
+            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.test_neg))
             self.df_all_features = pd.read_csv(pathlib.Path(cfg.path.root, cfg.data.all_features))
             self.df_train_pos = self.df_train_pos.sort_values(by=[DEFAULT_USER_COL]).reset_index(drop=True)
             self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).reset_index(drop=True)
 
+
     def features_select(self):
-        self.user_features = ['DegreeType', 'Major', 'GraduationDate']
+        self.user_features = []
         self.user_features_extend = [DEFAULT_USER_COL] + self.user_features
 
         self.item_features = []
@@ -511,7 +512,7 @@ class model_sbert():
             self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).reset_index(drop=True)
 
     def features_select(self):
-        self.user_features = ['DegreeType', 'Major', 'GraduationDate']
+        self.user_features = []
         self.user_features_extend = [DEFAULT_USER_COL] + self.user_features
 
         self.item_features = []
