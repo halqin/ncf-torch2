@@ -51,16 +51,37 @@ else:
     BATCH_SIZE = cfg.params.batch_size_gpu
     EPOCHS = cfg.params.epochs_gpu
 
+class ModelsInit(ABC):
+    @abstractmethod
+    def create_model(self, trainer):
+        pass
+
+class model_cat_init(ModelsInit):
+    '''
+    Categorical input model.
+    '''
+    def create_model(self, trainer):
+        return EntityCat(embedding_size=trainer.embedding_size, num_numerical_cols=len(trainer.num_feature),
+                               output_size=1)
+
+class model_sbert_init(ModelsInit):
+    def create_model(self, trainer):
+        return EntityCat_sbert(embedding_size = trainer.embedding_size, num_numerical_cols = len(trainer.num_feature), \
+               output_size = 1, word_weight=trainer.title_em_weight, encode_array=trainer.item_encode_array,
+                 neurons_in_layers=[100], p=0.4)
+
 
 class TrainPipe(ABC):
-    def __init__(self, wandb_enable):
+    def __init__(self, wandb_enable, model_type: ModelsInit):
         # self.use_amp = None
         self.read_dataset()
         self.wandb_enable = wandb_enable
+        self.model_type = model_type
 
     @abstractmethod
     def read_dataset(self):
         pass
+
 
     # # @staticmethod
     def _concat_index(self, df1, df2):
@@ -103,6 +124,18 @@ class TrainPipe(ABC):
         self.embedding_size = self._embedding_dimension(df_all_encode, features_to_train, max_dim)
         # self.df_train, self.df_test, embedding_size
 
+    def hook_dataprocess(self):
+        '''
+        extral dataprocess function
+        '''
+        pass
+
+    def hook_nlp_job_encode(self):
+        '''
+        Encode the jobid of sbert weight
+        '''
+        pass
+
     @abstractmethod
     def data_check(self):
         pass
@@ -134,10 +167,12 @@ class TrainPipe(ABC):
     def run(self):
         self.read_dataset()
         self._generate_all()
+        self.hook_dataprocess()
+        self.hook_nlp_job_encode()
         self.features_select()
         self.df_mix_merge = mix_merge(self.df_all, self.df_all_features, self.user_features_extend,
                                       self.item_features_extend)
-        num_feature = []
+        self.num_feature = []
         features_to_code = self.df_mix_merge.columns
         features_to_train = [DEFAULT_USER_COL, DEFAULT_ITEM_COL] + self.user_features + self.item_features + [
             DEFAULT_RATING_COL]
@@ -148,8 +183,9 @@ class TrainPipe(ABC):
         np_train, np_val, np_test = self.df_to_np()
         train_loader, val_loader, test_loader = self.dataloader_init(np_train, np_val, np_test)
 
-        self.model = EntityCat(embedding_size=self.embedding_size, num_numerical_cols=len(num_feature),
-                               output_size=1)
+        # self.model = EntityCat(embedding_size=self.embedding_size, num_numerical_cols=len(num_feature),
+        #                        output_size=1)
+        self.model = self.model_type.create_model(trainer=self)
         self.model.to(device)
         self.criterion = nn.BCEWithLogitsLoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=cfg.params.lr)
@@ -345,8 +381,8 @@ class TrainPipe(ABC):
 
 
 class model_leave_one(TrainPipe):
-    def __init__(self, wandb_enable: bool):
-        super().__init__(wandb_enable=wandb_enable)
+    # def __init__(self, wandb_enable: bool):
+    #     super().__init__(wandb_enable=wandb_enable)
         # self.wanab_enable = wandb_enable
 
     def read_dataset(self):
@@ -417,8 +453,8 @@ class model_leave_one(TrainPipe):
 
 
 class model_temp(TrainPipe):
-    def __init__(self, wandb_enable: bool):
-        super().__init__(wandb_enable=wandb_enable)
+    # def __init__(self, wandb_enable: bool):
+    #     super().__init__(wandb_enable=wandb_enable)
 
     def read_dataset(self):
         if device.type == 'cpu':
@@ -485,9 +521,9 @@ class model_temp(TrainPipe):
         )
 
 
-class model_sbert():
-    def __init__(self, wandb_enable: bool):
-        super().__init__(wandb_enable=wandb_enable)
+class model_sbert(TrainPipe):
+    # def __init__(self, wandb_enable: bool):
+    #     super().__init__(wandb_enable=wandb_enable)
         # self.wanab_enable = wandb_enable
 
     def read_dataset(self):
@@ -501,6 +537,7 @@ class model_sbert():
             self.df_train_pos = self.df_train_pos.sort_values(by=[DEFAULT_USER_COL]).iloc[:100, ].reset_index(drop=True)
             self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[
                                 :100 * cfg.params.neg_train, ].reset_index(drop=True)
+            self.job_title_emb = pd.read_feather(pathlib.Path(cfg.path.root, cfg.data.title_emb))
         else:
             self.use_amp = True
             self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
@@ -509,9 +546,16 @@ class model_sbert():
             self.df_all_features = pd.read_csv(pathlib.Path(cfg.path.root, cfg.data.all_features))
             self.df_train_pos = self.df_train_pos.sort_values(by=[DEFAULT_USER_COL]).reset_index(drop=True)
             self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).reset_index(drop=True)
+            self.job_title_emb = pd.read_feather(pathlib.Path(cfg.path.root, cfg.data.title_emb))
+
+    def hook_dataprocess(self):
+        try:
+            self.df_all.drop(index=self.df_all.iloc[372775:372775 + 5, :].index, inplace=True)
+        except:
+            pass
 
     def features_select(self):
-        self.user_features = ['DegreeType', 'Major', 'GraduationDate']
+        self.user_features = []
         self.user_features_extend = [DEFAULT_USER_COL] + self.user_features
 
         self.item_features = []
@@ -532,6 +576,11 @@ class model_sbert():
         assert self.df_all.shape[0] == self.df_train.shape[0] + self.df_test.shape[0], 'wrong data concat'
         assert sum(self.df_all.groupby(['userid']).apply(lambda x: len(x['itemid'].unique()))) == self.df_all.shape[
             0], 'train and test have overlap item'
+
+    def hook_nlp_job_encode(self):
+        le_item = preprocessing.LabelEncoder()
+        self.item_encode_array = le_item.fit_transform(self.job_title_emb['item_id'].astype('category'))
+        self.title_em_weight = torch.FloatTensor(np.array(self.job_title_emb.Title_em.tolist()))
 
     def dataloader_init(self, np_train, np_val, np_test):
         g = torch.Generator()
@@ -555,10 +604,13 @@ class model_sbert():
             project="pytorch-jrs",
             name="-".join(self.user_features) + '-' + '-'.join(self.item_features),
             config=config_dict,
-            tags=['leave_one']
+            tags=['leave_one', 'sbert']
         )
 
 
+
 if __name__ == "__main__":
-    train = model_temp(wandb_enable=True)
+    train = model_sbert(wandb_enable=False, model_type=model_sbert_init())
+
+    # train = model_leave_one(wandb_enable=False, model_type=model_cat_init())
     train.run()
