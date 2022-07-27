@@ -130,14 +130,14 @@ class CustomAuc_new(Metric):
     '''
 
     def __init__(self, output_transform=lambda x: [x['label'], x['y_pred']], device="cpu"):
-        self._auc_rate = None
+        self._auc_list = None
         self.auc = ranking.AUC()
-        super(CustomAuc, self).__init__(output_transform=output_transform, device=device)
+        super().__init__(output_transform=output_transform, device=device)
 
     @reinit__is_reduced
     def reset(self):
         self._auc_list = []
-        super(CustomAuc, self).reset()
+        super().reset()
 
     @reinit__is_reduced
     def update(self, output):
@@ -156,20 +156,20 @@ class CustomAuc_top_new(Metric):
     Calcualte AUC@k
     '''
 
-    def __init__(self, output_transform=lambda x: [x['label_top'], x['y_pred_top']], device="cpu"):
+    def __init__(self, k, output_transform=lambda x: [x['label'], x['y_pred']], device="cpu"):
         self._auc_list = None
-        self.auc = ranking.AUC()
-        super(CustomAuc_top, self).__init__(output_transform=output_transform, device=device)
+        self.auc = ranking.AUC_K(k=k)
+        super().__init__(output_transform=output_transform, device=device)
 
     @reinit__is_reduced
     def reset(self):
         self._auc_list = []
-        super(CustomAuc_top, self).reset()
+        super().reset()
 
     @reinit__is_reduced
     def update(self, output):
-        y = output[0].astype(int)
-        pd_scores = output[1]
+        y = output[0].cpu().numpy().astype(int)
+        pd_scores = output[1].cpu().numpy()
         self._auc_list.append(self.auc.compute(pd_scores=pd_scores, gt_pos=y))
 
     @sync_all_reduce("_auc_list")

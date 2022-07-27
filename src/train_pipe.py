@@ -12,8 +12,8 @@ import src.data_process.neg_sample as ng_sample
 from src.data_process.utils import mix_merge
 from src.data_process.data_split import data_split_user
 from src.metrics.evaluate_ignite import CustomHR, CustomNDCG, CustomAuc_top, CustomAuc, CustomRecall_top, \
-    CustomPrecision_top
-from src.model_entity import EntityCat
+    CustomPrecision_top, CustomAuc_new, CustomAuc_top_new
+from src.model_entity import EntityCat, EntityCat_sbert
 from src.data_utils import CatData
 from src.utils.constants import DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_RATING_COL, DEFAULT_TIMESTAMP_COL
 
@@ -200,9 +200,7 @@ class TrainPipe(ABC):
                 x, label = batch[0].to(device), batch[1].to(device)
                 y_pred = self.model(x).reshape(1, -1).flatten()
                 label = label.float()
-
                 y_pred_top, indices = torch.topk(y_pred, engine.state.topk)
-
                 y_pred_top = y_pred_top.detach().cpu().numpy()
                 reco_item = torch.take(x[:, 1], indices).cpu().numpy().tolist()
                 pos_item = x[0, 1].cpu().numpy().tolist()  # ground truth, item id
@@ -343,7 +341,7 @@ class TrainPipe(ABC):
             trainer.run(train_loader, max_epochs=EPOCHS)
             self.wandb_logger.close()
         else:
-            trainer.run(train_loader, max_epochs=EPOCHS)
+            trainer.run(train_loader, max_epochs=2)
 
 
 class model_leave_one(TrainPipe):
@@ -425,15 +423,12 @@ class model_temp(TrainPipe):
     def read_dataset(self):
         if device.type == 'cpu':
             self.use_amp = False
-            self.df_train_pos = ng_sample.read_feather(
-                pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_pos))
+            self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_pos))
             self.df_train_neg = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_neg))
-            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.test_neg)).iloc[
-                               :100, ]
+            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.test_neg)).iloc[:100, ]
             self.df_all_features = pd.read_csv(pathlib.Path(cfg.path.root, cfg.data.all_features))
             self.df_train_pos = self.df_train_pos.sort_values(by=[DEFAULT_USER_COL]).iloc[:100, ].reset_index(drop=True)
-            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[
-                                :100 * cfg.params.neg_train, ].reset_index(drop=True)
+            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[:100 * cfg.params.neg_train, ].reset_index(drop=True)
         else:
             self.use_amp = True
             self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
@@ -490,6 +485,80 @@ class model_temp(TrainPipe):
         )
 
 
+class model_sbert():
+    def __init__(self, wandb_enable: bool):
+        super().__init__(wandb_enable=wandb_enable)
+        # self.wanab_enable = wandb_enable
+
+    def read_dataset(self):
+        if device.type == 'cpu':
+            self.use_amp = False
+            self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
+            self.df_train_neg = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_neg))
+            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.test_pos_neg)).iloc[
+                               :202, ]
+            self.df_all_features = pd.read_csv(pathlib.Path(cfg.path.root, cfg.data.all_features))
+            self.df_train_pos = self.df_train_pos.sort_values(by=[DEFAULT_USER_COL]).iloc[:100, ].reset_index(drop=True)
+            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[
+                                :100 * cfg.params.neg_train, ].reset_index(drop=True)
+        else:
+            self.use_amp = True
+            self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
+            self.df_train_neg = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_neg))
+            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.test_pos_neg))
+            self.df_all_features = pd.read_csv(pathlib.Path(cfg.path.root, cfg.data.all_features))
+            self.df_train_pos = self.df_train_pos.sort_values(by=[DEFAULT_USER_COL]).reset_index(drop=True)
+            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).reset_index(drop=True)
+
+    def features_select(self):
+        self.user_features = ['DegreeType', 'Major', 'GraduationDate']
+        self.user_features_extend = [DEFAULT_USER_COL] + self.user_features
+
+        self.item_features = []
+        self.item_features_extend = [DEFAULT_ITEM_COL] + self.item_features
+
+        self.base_features = [DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_RATING_COL]
+        # return user_features_extend, item_features_extend, base_features
+
+    def data_check(self):
+        assert len(self.df_train[self.df_train.rating == 0]) / len(
+            self.df_train[self.df_train.rating == 1]) == cfg.params.neg_train, 'wrong neg/pos ratio in training set'
+        assert len(self.df_test[self.df_test.rating == 0]) / len(
+            self.df_test[self.df_test.rating == 1]) == cfg.params.neg_test, 'wrong neg/pos ratio in test set '
+        # Check if all the users in test can be found in training set
+        assert sum(np.isin(self.df_test.userid.unique(), self.df_train.userid.unique(), assume_unique=True)) == len(
+            self.df_test.userid.unique()), 'cold start'
+        # The the uniqueness of items between training and test. For a user, on common items between training and test dataset.
+        assert self.df_all.shape[0] == self.df_train.shape[0] + self.df_test.shape[0], 'wrong data concat'
+        assert sum(self.df_all.groupby(['userid']).apply(lambda x: len(x['itemid'].unique()))) == self.df_all.shape[
+            0], 'train and test have overlap item'
+
+    def dataloader_init(self, np_train, np_val, np_test):
+        g = torch.Generator()
+        g.manual_seed(0)
+
+        train_dataset = CatData(np_train)
+        val_dataset = CatData(np_val)
+        test_dataset = CatData(np_test)
+        train_loader = data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0,
+                                       worker_init_fn=self.seed_worker, generator=g)
+        val_loader = data.DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False, num_workers=0,
+                                     worker_init_fn=self.seed_worker, generator=g)
+        test_loader = data.DataLoader(test_dataset, batch_size=cfg.params.neg_test + 1, shuffle=False, num_workers=0,
+                                      worker_init_fn=self.seed_worker, generator=g)
+        return train_loader, val_loader, test_loader
+
+    def wandb_init(self):
+        config_dict = dict(cfg.params)
+        config_dict['Features'] = '-'.join(self.user_features + self.item_features)
+        self.wandb_logger = WandBLogger(
+            project="pytorch-jrs",
+            name="-".join(self.user_features) + '-' + '-'.join(self.item_features),
+            config=config_dict,
+            tags=['leave_one']
+        )
+
+
 if __name__ == "__main__":
-    train = model_leave_one(wandb_enable=True)
+    train = model_temp(wandb_enable=True)
     train.run()

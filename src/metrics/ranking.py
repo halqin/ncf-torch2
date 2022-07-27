@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+import sys
 
 import numpy as np
 from scipy.stats import rankdata
@@ -457,7 +458,13 @@ class AUC(RankingMetric):
 
         pos_scores = pd_scores[gt_pos.astype(np.bool)]
         neg_scores = pd_scores[gt_neg.astype(np.bool)]
-        ui_scores = np.repeat(pos_scores, len(neg_scores))
+        try:
+            ui_scores = np.repeat(pos_scores, len(neg_scores))
+        except:
+            print('hao----1', len(neg_scores))
+            print('hao----2', pos_scores.shape)
+            sys.exit(1)
+
         uj_scores = np.tile(neg_scores, len(pos_scores))
         if len(uj_scores)==0:
             return 0
