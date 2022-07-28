@@ -465,7 +465,7 @@ class model_leave_one(TrainPipe):
             # name="-".join(self.user_features) + '-' + '-'.join(self.item_features),
             name=self.feature_cat_all,
             config=config_dict,
-            tags=['leave_one', self.feature_cat_all]
+            tags=['leave_one', self.feature_cat_all, 'top'+str(cfg.params.topk)]
         )
 
 
@@ -615,6 +615,6 @@ class model_sbert(TrainPipe):
 if __name__ == "__main__":
     # train = model_sbert(wandb_enable=False, model_type=model_sbert_init())
 
-    train = model_temp(wandb_enable=True, model_type=model_cat_init())
+    train = model_leave_one(wandb_enable=True, model_type=model_cat_init())
 
     train.run()
