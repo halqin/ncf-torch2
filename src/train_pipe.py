@@ -51,24 +51,29 @@ else:
     BATCH_SIZE = cfg.params.batch_size_gpu
     EPOCHS = cfg.params.epochs_gpu
 
+
 class ModelsInit(ABC):
     @abstractmethod
     def create_model(self, trainer):
         pass
 
+
 class model_cat_init(ModelsInit):
     '''
     Categorical input model.
     '''
+
     def create_model(self, trainer):
         return EntityCat(embedding_size=trainer.embedding_size, num_numerical_cols=len(trainer.num_feature),
-                               output_size=1)
+                         output_size=1)
+
 
 class model_sbert_init(ModelsInit):
     def create_model(self, trainer):
-        return EntityCat_sbert(embedding_size = trainer.embedding_size, num_numerical_cols = len(trainer.num_feature), \
-               output_size = 1, word_weight=trainer.title_em_weight, encode_array=trainer.item_encode_array,
-                 neurons_in_layers=[100], p=0.4)
+        return EntityCat_sbert(embedding_size=trainer.embedding_size, num_numerical_cols=len(trainer.num_feature), \
+                               output_size=1, word_weight=trainer.title_em_weight,
+                               encode_array=trainer.item_encode_array,
+                               neurons_in_layers=[100], p=0.4)
 
 
 class TrainPipe(ABC):
@@ -77,11 +82,20 @@ class TrainPipe(ABC):
         self.read_dataset()
         self.wandb_enable = wandb_enable
         self.model_type = model_type
+        self.dict_feature = {'Edu': ['DegreeType', 'Major', 'GraduationDate'],
+                             'All': ['WindowID_user', 'City', 'State', 'Zip_user', 'DegreeType',
+                                     'Major', 'GraduationDate', 'WorkHistoryCount', 'TotalYearsExperience',
+                                     'CurrentlyEmployed', 'ManagedOthers', 'ManagedHowMany', 'WindowID_job', 'City_job',
+                                     'State_job', 'Country_job', 'Zip_job', 'StartDate', 'EndDate'],
+                             'Geo_user': ['City', 'State', 'Zip_user'],
+                             'Geo_item': ['City_job', 'State_job', 'Country_job', 'Zip_job'],
+                             'Exp': ['WorkHistoryCount', 'TotalYearsExperience', 'CurrentlyEmployed', 'ManagedOthers',
+                                     'ManagedHowMany'],
+                             'Base': []}
 
     @abstractmethod
     def read_dataset(self):
         pass
-
 
     # # @staticmethod
     def _concat_index(self, df1, df2):
@@ -99,6 +113,16 @@ class TrainPipe(ABC):
     @abstractmethod
     def features_select(self):
         pass
+
+    def feature_extract(self):
+        self.feature_cat_all = '-'.join((self.feature_cat_user, self.feature_cat_item))
+        self.user_features = self.dict_feature.get(self.feature_cat_user, [])
+        self.user_features_extend = [DEFAULT_USER_COL] + self.user_features
+
+        self.item_features = self.dict_feature.get(self.feature_cat_item, [])
+        self.item_features_extend = [DEFAULT_ITEM_COL] + self.item_features
+
+        self.base_features = [DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_RATING_COL]
 
     def _cat_encode(self, df_data, list_f, encoder):
         for f in list_f:
@@ -170,6 +194,7 @@ class TrainPipe(ABC):
         self.hook_dataprocess()
         self.hook_nlp_job_encode()
         self.features_select()
+        self.feature_extract()
         self.df_mix_merge = mix_merge(self.df_all, self.df_all_features, self.user_features_extend,
                                       self.item_features_extend)
         self.num_feature = []
@@ -383,17 +408,19 @@ class TrainPipe(ABC):
 class model_leave_one(TrainPipe):
     # def __init__(self, wandb_enable: bool):
     #     super().__init__(wandb_enable=wandb_enable)
-        # self.wanab_enable = wandb_enable
+    # self.wanab_enable = wandb_enable
 
     def read_dataset(self):
         if device.type == 'cpu':
             self.use_amp = False
             self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
             self.df_train_neg = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_neg))
-            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.test_pos_neg)).iloc[:202, ]
+            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.test_pos_neg)).iloc[
+                               :202, ]
             self.df_all_features = pd.read_csv(pathlib.Path(cfg.path.root, cfg.data.all_features))
             self.df_train_pos = self.df_train_pos.sort_values(by=[DEFAULT_USER_COL]).iloc[:100, ].reset_index(drop=True)
-            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[:100 * cfg.params.neg_train, ].reset_index(drop=True)
+            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[
+                                :100 * cfg.params.neg_train, ].reset_index(drop=True)
         else:
             self.use_amp = True
             self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
@@ -404,14 +431,8 @@ class model_leave_one(TrainPipe):
             self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).reset_index(drop=True)
 
     def features_select(self):
-        self.user_features = ['DegreeType', 'Major', 'GraduationDate']
-        self.user_features_extend = [DEFAULT_USER_COL] + self.user_features
-
-        self.item_features = []
-        self.item_features_extend = [DEFAULT_ITEM_COL] + self.item_features
-
-        self.base_features = [DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_RATING_COL]
-        # return user_features_extend, item_features_extend, base_features
+        self.feature_cat_user = 'Edu'
+        self.feature_cat_item = 'None'
 
     def data_check(self):
         assert len(self.df_train[self.df_train.rating == 0]) / len(
@@ -446,9 +467,10 @@ class model_leave_one(TrainPipe):
         config_dict['Features'] = '-'.join(self.user_features + self.item_features)
         self.wandb_logger = WandBLogger(
             project="pytorch-jrs",
-            name="-".join(self.user_features) + '-' + '-'.join(self.item_features),
+            # name="-".join(self.user_features) + '-' + '-'.join(self.item_features),
+            name=self.feature_cat_all,
             config=config_dict,
-            tags=['leave_one']
+            tags=['leave_one', self.feature_cat_all]
         )
 
 
@@ -459,12 +481,15 @@ class model_temp(TrainPipe):
     def read_dataset(self):
         if device.type == 'cpu':
             self.use_amp = False
-            self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_pos))
+            self.df_train_pos = ng_sample.read_feather(
+                pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_pos))
             self.df_train_neg = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.train_neg))
-            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.test_neg)).iloc[:100, ]
+            self.df_test_ori = pd.read_feather(pathlib.Path(cfg.path.global_temp, cfg.global_temp_data.test_neg)).iloc[
+                               :100, ]
             self.df_all_features = pd.read_csv(pathlib.Path(cfg.path.root, cfg.data.all_features))
             self.df_train_pos = self.df_train_pos.sort_values(by=[DEFAULT_USER_COL]).iloc[:100, ].reset_index(drop=True)
-            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[:100 * cfg.params.neg_train, ].reset_index(drop=True)
+            self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).iloc[
+                                :100 * cfg.params.neg_train, ].reset_index(drop=True)
         else:
             self.use_amp = True
             self.df_train_pos = ng_sample.read_feather(pathlib.Path(cfg.path.leave_one, cfg.leave_one_data.train_pos))
@@ -475,14 +500,10 @@ class model_temp(TrainPipe):
             self.df_train_neg = self.df_train_neg.sort_values(by=[DEFAULT_USER_COL]).reset_index(drop=True)
 
     def features_select(self):
-        self.user_features = ['DegreeType', 'Major', 'GraduationDate']
-        self.user_features_extend = [DEFAULT_USER_COL] + self.user_features
+        self.feature_cat_user = 'Edu'
+        self.feature_cat_item = 'None'
 
-        self.item_features = []
-        self.item_features_extend = [DEFAULT_ITEM_COL] + self.item_features
 
-        self.base_features = [DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_RATING_COL]
-        # return user_features_extend, item_features_extend, base_features
 
     def data_check(self):
         assert len(self.df_train[self.df_train.rating == 0]) / len(
@@ -524,7 +545,7 @@ class model_temp(TrainPipe):
 class model_sbert(TrainPipe):
     # def __init__(self, wandb_enable: bool):
     #     super().__init__(wandb_enable=wandb_enable)
-        # self.wanab_enable = wandb_enable
+    # self.wanab_enable = wandb_enable
 
     def read_dataset(self):
         if device.type == 'cpu':
@@ -555,14 +576,9 @@ class model_sbert(TrainPipe):
             pass
 
     def features_select(self):
-        self.user_features = []
-        self.user_features_extend = [DEFAULT_USER_COL] + self.user_features
+        self.feature_cat_user = 'Edu'
+        self.feature_cat_item = 'None'
 
-        self.item_features = []
-        self.item_features_extend = [DEFAULT_ITEM_COL] + self.item_features
-
-        self.base_features = [DEFAULT_USER_COL, DEFAULT_ITEM_COL, DEFAULT_RATING_COL]
-        # return user_features_extend, item_features_extend, base_features
 
     def data_check(self):
         assert len(self.df_train[self.df_train.rating == 0]) / len(
@@ -608,9 +624,7 @@ class model_sbert(TrainPipe):
         )
 
 
-
 if __name__ == "__main__":
-    train = model_sbert(wandb_enable=False, model_type=model_sbert_init())
-
+    train = model_leave_one(wandb_enable=True, model_type=model_cat_init())
     # train = model_leave_one(wandb_enable=False, model_type=model_cat_init())
     train.run()

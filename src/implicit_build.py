@@ -21,7 +21,7 @@ def als(model_path, user_job_app):
 
 def bpr(model_path, user_job_app):
     # user_job_app = job_user_app.T.tocsr()
-    model = BayesianPersonalizedRanking()
+    model = BayesianPersonalizedRanking(iterations=200)
     model.fit(user_job_app)
     with open(os.path.join(model_path, 'model_bpr.sav'), 'wb') as pickle_out:
         pickle.dump(model, pickle_out)
