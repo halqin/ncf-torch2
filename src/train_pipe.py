@@ -379,12 +379,7 @@ class TrainPipe(ABC):
         else:
             trainer.run(train_loader, max_epochs=2)
 
-
 class model_leave_one(TrainPipe):
-    # def __init__(self, wandb_enable: bool):
-    #     super().__init__(wandb_enable=wandb_enable)
-        # self.wanab_enable = wandb_enable
-
     def read_dataset(self):
         if device.type == 'cpu':
             self.use_amp = False
@@ -453,9 +448,6 @@ class model_leave_one(TrainPipe):
 
 
 class model_temp(TrainPipe):
-    # def __init__(self, wandb_enable: bool):
-    #     super().__init__(wandb_enable=wandb_enable)
-
     def read_dataset(self):
         if device.type == 'cpu':
             self.use_amp = False
@@ -476,7 +468,8 @@ class model_temp(TrainPipe):
 
 
     def features_select(self):
-        self.user_features = []
+        self.user_features = ['WorkHistoryCount', 'TotalYearsExperience', 'CurrentlyEmployed', 'ManagedOthers', 'ManagedHowMany']
+
         self.user_features_extend = [DEFAULT_USER_COL] + self.user_features
 
         self.item_features = []
@@ -523,10 +516,6 @@ class model_temp(TrainPipe):
 
 
 class model_sbert(TrainPipe):
-    # def __init__(self, wandb_enable: bool):
-    #     super().__init__(wandb_enable=wandb_enable)
-        # self.wanab_enable = wandb_enable
-
     def read_dataset(self):
         if device.type == 'cpu':
             self.use_amp = False
@@ -611,7 +600,7 @@ class model_sbert(TrainPipe):
 
 
 if __name__ == "__main__":
-    train = model_sbert(wandb_enable=False, model_type=model_sbert_init())
+    # train = model_sbert(wandb_enable=False, model_type=model_sbert_init())
 
-    # train = model_leave_one(wandb_enable=False, model_type=model_cat_init())
+    train = model_temp(wandb_enable=True, model_type=model_cat_init())
     train.run()
