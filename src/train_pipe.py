@@ -6,6 +6,7 @@ from datetime import datetime
 import time
 from hydra import initialize, compose
 import pathlib
+from operator import itemgetter
 # import config
 
 import src.data_process.neg_sample as ng_sample
@@ -83,14 +84,16 @@ class TrainPipe(ABC):
         self.wandb_enable = wandb_enable
         self.model_type = model_type
         self.dict_feature = {'Edu': ['DegreeType', 'Major', 'GraduationDate'],
-                             'All': ['WindowID_user', 'City', 'State', 'Zip_user', 'DegreeType',
+                             'All_user': ['WindowID_user', 'City', 'State', 'Zip_user', 'DegreeType',
                                      'Major', 'GraduationDate', 'WorkHistoryCount', 'TotalYearsExperience',
-                                     'CurrentlyEmployed', 'ManagedOthers', 'ManagedHowMany', 'WindowID_job', 'City_job',
-                                     'State_job', 'Country_job', 'Zip_job', 'StartDate', 'EndDate'],
+                                     'CurrentlyEmployed', 'ManagedOthers', 'ManagedHowMany'],
+                             'All_item': [ 'WindowID_job', 'City_job','State_job', 'Country_job', 'Zip_job'],
                              'Geo_user': ['City', 'State', 'Zip_user'],
                              'Geo_item': ['City_job', 'State_job', 'Country_job', 'Zip_job'],
                              'Exp': ['WorkHistoryCount', 'TotalYearsExperience', 'CurrentlyEmployed', 'ManagedOthers',
                                      'ManagedHowMany'],
+                             'Time_user': ['WindowID_user'],
+                             'Time_item': ['WindowID_item'],
                              'Base': []}
 
     @abstractmethod
@@ -493,8 +496,8 @@ class model_temp(TrainPipe):
 
 
     def features_select(self):
-        self.feature_cat_user = 'Edu'
-        self.feature_cat_item = 'None'
+        self.feature_cat_user = 'Geo_user'
+        self.feature_cat_item = 'Geo_item'
 
 
     def data_check(self):
@@ -530,7 +533,7 @@ class model_temp(TrainPipe):
             project="pytorch-jrs",
             name="-".join(self.user_features) + '-' + '-'.join(self.item_features),
             config=config_dict,
-            tags=['temp']
+            tags=['temp', self.feature_cat_all, 'top'+str(cfg.params.topk)  ]
         )
 
 
@@ -558,14 +561,15 @@ class model_sbert(TrainPipe):
             self.job_title_emb = pd.read_feather(pathlib.Path(cfg.path.root, cfg.data.title_emb))
 
     def hook_dataprocess(self):
-        try:
-            self.df_all.drop(index=self.df_all.iloc[372775:372775 + 5, :].index, inplace=True)
-        except:
-            pass
+        # try:
+        self.df_all.drop(index=self.df_all.iloc[372775:372775 + 5, :].index, inplace=True)
+        self.df_all = self.df_all.reset_index(drop=True)
+        # except:
+        #     pass
 
     def features_select(self):
-        self.feature_cat_user = 'Edu'
-        self.feature_cat_item = 'None'
+        self.feature_cat_user = 'All_user'
+        self.feature_cat_item = 'All_item'
 
 
     def data_check(self):
@@ -606,15 +610,15 @@ class model_sbert(TrainPipe):
         config_dict['Features'] = '-'.join(self.user_features + self.item_features)
         self.wandb_logger = WandBLogger(
             project="pytorch-jrs",
-            name="-".join(self.user_features) + '-' + '-'.join(self.item_features),
+            name=self.feature_cat_all,
             config=config_dict,
-            tags=['leave_one', 'sbert']
+            tags=['leave_one', 'sbert', self.feature_cat_all, 'top'+str(cfg.params.topk)]
         )
 
 
 if __name__ == "__main__":
-    # train = model_sbert(wandb_enable=False, model_type=model_sbert_init())
+    # train = model_leave_one(wandb_enable=False, model_type=model_cat_init())
 
-    train = model_leave_one(wandb_enable=True, model_type=model_cat_init())
+    train = model_sbert(wandb_enable=True, model_type=model_sbert_init())
 
     train.run()

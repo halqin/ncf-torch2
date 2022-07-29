@@ -1,5 +1,5 @@
 params:
-  batch_size_gpu: 1048576
+  batch_size_gpu: 262144
   batch_size_cpu: 20
   epochs_gpu: 100
   epochs_cpu: 20
